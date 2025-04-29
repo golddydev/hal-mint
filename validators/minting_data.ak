@@ -1,0 +1,44 @@
+use aiken/merkle_patricia_forestry as mpt
+use aiken/transaction.{ScriptContext, Spend}
+use common/hashes.{VerificationKeyHash}
+use validations/minting_data/validation.{can_mint, can_update_mpt}
+
+pub type MintingDataRedeemer {
+  // mint hal nfts
+  Mint(List<mpt.Proof>, Int)
+  // update MPT root has
+  UpdateMPT
+}
+
+// NOTE:
+// This is spending validator
+// It is referred to as `minting_data_script_hash` in SettingsV1
+// This validators locks minting_data_asset
+// which holds the MPT root hash (of all HAL NFTs with its datum hash) in its datum
+// To mint HAL NFTs, you must spend minting_data_asset from here
+//
+// This validator contains almost all logic for decentralized minting
+//
+// ======= Parameters =======
+// `admin_verification_key_hash`: has the authority to spend minting_data_asset
+// without actually minting assets
+//
+// datum type is Data because when minting data asset is sent with wrong datum
+// still can recover asset
+//
+validator(admin_verification_key_hash: VerificationKeyHash) {
+  pub fn spend(
+    _minting_data: Data,
+    redeemer: MintingDataRedeemer,
+    ctx: ScriptContext,
+  ) {
+    let ScriptContext(transaction, purpose) = ctx
+    expect Spend(spending_output_reference) = purpose
+
+    when redeemer is {
+      Mint(proofs, minter_index) ->
+        can_mint(transaction, spending_output_reference, proofs, minter_index)
+      UpdateMPT -> can_update_mpt(transaction, admin_verification_key_hash)
+    }
+  }
+}

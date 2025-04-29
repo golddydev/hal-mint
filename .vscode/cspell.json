@@ -1,0 +1,21 @@
+{
+  "version": "0.2",
+  "language": "en, lorem",
+  "words": [
+    "koralab",
+    "merkle",
+    "stdlib",
+    "koralabs",
+    "bytearray",
+    "cbor",
+    "serialise",
+    "kora"
+  ],
+  "ignorePaths": [
+    "node_modules",
+    ".git",
+    "package.json",
+    "package-lock.json",
+    ".vscode/**"
+  ]
+}
