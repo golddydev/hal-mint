@@ -16,7 +16,7 @@ pub fn all_orders_are_satisfied(
   inputs: List<Input>,
   outputs: List<Output>,
   policy_id: PolicyId,
-  pz_script_address: Address,
+  cip68_script_address: Address,
   proofs: List<mpt.Proof>,
   root: mpt.MerklePatriciaForestry,
   expected_mint_value: Value,
@@ -33,7 +33,7 @@ pub fn all_orders_are_satisfied(
           // parse order datum
           expect InlineDatum(datum) = datum
           expect datum: OrderDatum = datum
-          let OrderDatum { asset_name, destination, .. } = datum
+          let OrderDatum { asset_name, destination_address, .. } = datum
 
           // parse proofs
           expect [mpt_proof, ..rest_proofs] = proofs
@@ -48,8 +48,8 @@ pub fn all_orders_are_satisfied(
               user_output,
               policy_id,
               asset_name,
-              pz_script_address,
-              destination.address,
+              cip68_script_address,
+              destination_address,
               expected_mint_value,
             )
 
@@ -64,7 +64,7 @@ pub fn all_orders_are_satisfied(
             rest_inputs,
             rest_outputs,
             policy_id,
-            pz_script_address,
+            cip68_script_address,
             rest_proofs,
             new_root,
             new_mint_value,
@@ -78,7 +78,7 @@ pub fn all_orders_are_satisfied(
             rest_inputs,
             outputs,
             policy_id,
-            pz_script_address,
+            cip68_script_address,
             proofs,
             root,
             expected_mint_value,
@@ -121,8 +121,8 @@ fn check_ref_and_user_outputs(
   user_output: Output,
   policy_id: PolicyId,
   asset_name: ByteArray,
-  pz_script_address: Address,
-  order_destination_address: Address,
+  cip68_script_address: Address,
+  destination_address: Address,
   mint_value: Value,
 ) -> (Value, DatumHash) {
   // make ref asset name and user asset name from asset_name
@@ -139,7 +139,7 @@ fn check_ref_and_user_outputs(
     user_output
 
   // check ref output
-  expect ref_output_address == pz_script_address
+  expect ref_output_address == cip68_script_address
   let expected_ref_value =
     value.zero()
       |> value.add(policy_id, ref_asset_name, 1)
@@ -149,7 +149,7 @@ fn check_ref_and_user_outputs(
   expect ref_output_reference_script == None
 
   // check user output
-  expect user_output_address == order_destination_address
+  expect user_output_address == destination_address
   let does_user_output_value_have_asset =
     value.quantity_of(user_output_value, policy_id, user_asset_name) == 1
   expect does_user_output_value_have_asset

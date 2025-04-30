@@ -8,16 +8,15 @@ use aiken/transaction/credential.{Address, StakeCredential}
 use aiken/transaction/value.{Value}
 use common/hashes.{ScriptHash, VerificationKeyHash}
 use hal_nft_mint/minting_data.{MintingData}
-use hal_nft_mint/orders.{Destination, OrderDatum}
+use hal_nft_mint/orders.{OrderDatum}
 use hal_nft_mint/settings.{Settings}
 use hal_nft_mint/settings_v1.{SettingsV1}
 use sundae/multisig.{Signature}
 use tests/mocks/fake_constants.{
-  allowed_minter_0, allowed_minter_1, min_order_lovelace, mint_governor,
-  mint_version, minting_data_asset_name, minting_data_asset_policy_id,
-  minting_data_script_hash, new_policy_id, order_script_hash, pz_script_address,
-  settings_asset_name, settings_asset_policy_id, treasury_address,
-  treasury_fee_percentage,
+  allowed_minter_0, allowed_minter_1, cip68_script_address, hal_nft_price,
+  min_order_lovelace, mint_governor, mint_version, minting_data_asset_name,
+  minting_data_asset_policy_id, minting_data_script_hash, new_policy_id,
+  order_script_hash, settings_asset_name, settings_asset_policy_id,
 }
 
 pub fn make_output(address: Address, v: Value) -> Output {
@@ -40,9 +39,9 @@ pub fn make_order_input(
     OrderDatum {
       owner: Signature(owner_verification_key_hash),
       asset_name,
-      destination: Destination {
-        address: credential.from_verification_key(owner_verification_key_hash),
-      },
+      destination_address: credential.from_verification_key(
+        owner_verification_key_hash,
+      ),
     }
   Input {
     output_reference: OutputReference {
@@ -67,10 +66,9 @@ pub fn make_settings_reference_input() -> Input {
   let settings_v1: SettingsV1 =
     SettingsV1 {
       policy_id: new_policy_id,
+      hal_nft_price,
       allowed_minters: [allowed_minter_0, allowed_minter_1],
-      treasury_address: treasury_address(),
-      treasury_fee_percentage,
-      pz_script_address: pz_script_address(),
+      cip68_script_address: cip68_script_address(),
       order_script_hash,
       minting_data_script_hash,
     }

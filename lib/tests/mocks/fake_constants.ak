@@ -26,18 +26,13 @@ pub const mint_version: Int = 0
 pub const new_policy_id: PolicyId =
   #"12345678123456781234567812345678123456781234567812345678"
 
+pub const hal_nft_price: Int = 180_000_000
+
 pub const allowed_minter_0: VerificationKeyHash = #"11112222"
 
 pub const allowed_minter_1: VerificationKeyHash = #"33334444"
 
-pub fn treasury_address() -> Address {
-  credential.from_verification_key(#"1111")
-    |> credential.with_delegation_key(#"2222")
-}
-
-pub const treasury_fee_percentage: Int = 90
-
-pub fn pz_script_address() -> Address {
+pub fn cip68_script_address() -> Address {
   credential.from_verification_key(#"8888")
     |> credential.with_delegation_key(#"9999")
 }

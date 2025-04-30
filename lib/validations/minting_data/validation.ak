@@ -41,7 +41,7 @@ pub fn can_mint(
   let SettingsV1 {
     policy_id,
     allowed_minters,
-    pz_script_address,
+    cip68_script_address,
     order_script_hash,
     ..
   } = settings_datum
@@ -76,7 +76,7 @@ pub fn can_mint(
       inputs,
       rest_outputs,
       policy_id,
-      pz_script_address,
+      cip68_script_address,
       proofs,
       root,
       value.zero(),

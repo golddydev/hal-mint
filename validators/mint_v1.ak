@@ -1,10 +1,10 @@
 use aiken/transaction.{ScriptContext, WithdrawFrom}
 use common/hashes.{ScriptHash}
-use validations/mint_v1/validation.{can_burn_handles, can_mint_handles}
+use validations/mint_v1/validation.{can_burn_nfts, can_mint_nfts}
 
 type MintV1Redeemer {
-  MintHandles
-  BurnHandles
+  MintNFTs
+  BurnNFTs
 }
 
 // NOTE:
@@ -21,8 +21,8 @@ validator(minting_data_script_hash: ScriptHash) {
     expect WithdrawFrom(_) = purpose
 
     when redeemer is {
-      MintHandles -> can_mint_handles(transaction, minting_data_script_hash)
-      BurnHandles -> can_burn_handles(transaction)
+      MintNFTs -> can_mint_nfts(transaction, minting_data_script_hash)
+      BurnNFTs -> can_burn_nfts(transaction)
     }
   }
 }

@@ -9,7 +9,7 @@ use hal_nft_mint/minting_data.{find_minting_data}
 // Checks
 // - minting_data asset is spent from minting_data_script from parameter
 //
-pub fn can_mint_handles(
+pub fn can_mint_nfts(
   transaction: Transaction,
   minting_data_script_hash: ScriptHash,
 ) -> Bool {
@@ -26,7 +26,7 @@ pub fn can_mint_handles(
   True
 }
 
-pub fn can_burn_handles(_transaction: Transaction) -> Bool {
+pub fn can_burn_nfts(_transaction: Transaction) -> Bool {
   trace @"Burn is disabled now"
   False
 }
