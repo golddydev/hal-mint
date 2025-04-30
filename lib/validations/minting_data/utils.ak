@@ -1,12 +1,10 @@
 use aiken/bytearray
 use aiken/merkle_patricia_forestry as mpt
 use aiken/transaction.{InlineDatum, Input, Output}
-use aiken/transaction/credential.{
-  Address, ScriptCredential, VerificationKeyCredential,
-}
+use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId, Value}
 use common/cip68.{prefix_100, prefix_222}
-use common/hashes.{DatumHash, ScriptHash, VerificationKeyHash}
+use common/hashes.{DatumHash, ScriptHash}
 use common/utils.{get_datum_hash}
 use hal_nft_mint/orders.{OrderDatum}
 
@@ -177,15 +175,4 @@ fn update_root(
   datum_hash: DatumHash,
 ) -> mpt.MerklePatriciaForestry {
   root |> mpt.update(asset_name, mpt_proof, #"", datum_hash)
-}
-
-pub fn is_minter_address_match_with_verification_key_hash(
-  minter_output_address: Address,
-  allowed_minter: VerificationKeyHash,
-) -> Bool {
-  let Address { payment_credential, .. } = minter_output_address
-  when payment_credential is {
-    VerificationKeyCredential(vkh) -> vkh == allowed_minter
-    _ -> False
-  }
 }
