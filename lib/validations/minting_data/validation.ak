@@ -41,6 +41,8 @@ pub fn can_mint(
   let SettingsV1 {
     policy_id,
     allowed_minters,
+    hal_nft_price,
+    payment_address,
     cip68_script_address,
     order_script_hash,
     ..
@@ -58,10 +60,13 @@ pub fn can_mint(
   let MintingData { mpt_root_hash } = resolve_minting_data(minting_data_input)
 
   // parse outputs
-  expect [minting_data_output, ..rest_outputs] = outputs
+  expect [minting_data_output, payment_output, ..rest_outputs] = outputs
 
-  // expect proofs are not empty
-  expect list.length(proofs) > 0
+  // get how many nfts are being minted
+  let minting_nfts_count = list.length(proofs)
+
+  // expect at least one nft is being minted
+  expect minting_nfts_count > 0
 
   // build merkle patricia trie from old root hash
   let root = mpt.from_root(mpt_root_hash)
@@ -76,6 +81,7 @@ pub fn can_mint(
       inputs,
       rest_outputs,
       policy_id,
+      hal_nft_price,
       cip68_script_address,
       proofs,
       root,
@@ -96,6 +102,19 @@ pub fn can_mint(
       MintingData { mpt_root_hash: new_mpt_root_hash },
     )
   expect minting_data_output.reference_script == None
+
+  // check payment output
+  let total_hal_nfts_price = hal_nft_price * minting_nfts_count
+  let Output {
+    address: payment_output_address,
+    value: payment_output_value,
+    datum: payment_output_datum,
+    reference_script: payment_output_reference_script,
+  } = payment_output
+  expect payment_output_address == payment_address
+  expect payment_output_datum == InlineDatum(Void)
+  expect value.lovelace_of(payment_output_value) >= total_hal_nfts_price
+  expect payment_output_reference_script == None
 
   // check minted handles
   expect

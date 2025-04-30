@@ -4,10 +4,12 @@ use common/hashes.{ScriptHash, VerificationKeyHash}
 
 pub type SettingsV1 {
   policy_id: PolicyId,
-  // hal nft's price
-  hal_nft_price: Int,
   // anyone who buy minting credit will be listed here
   allowed_minters: List<VerificationKeyHash>,
+  // hal nft's price
+  hal_nft_price: Int,
+  // address to collect HAL NFT's cost
+  payment_address: Address,
   // CIP68 Spending validator address
   // ref asset is sent to this address
   cip68_script_address: Address,

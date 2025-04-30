@@ -14,6 +14,7 @@ pub fn all_orders_are_satisfied(
   inputs: List<Input>,
   outputs: List<Output>,
   policy_id: PolicyId,
+  hal_nft_price: Int,
   cip68_script_address: Address,
   proofs: List<mpt.Proof>,
   root: mpt.MerklePatriciaForestry,
@@ -24,14 +25,20 @@ pub fn all_orders_are_satisfied(
   when inputs is {
     [] -> continuation(root, expected_mint_value)
     [order_input, ..rest_inputs] -> {
-      let Output { address, datum, .. } = order_input.output
+      let Output { address, datum, value: order_input_value, .. } =
+        order_input.output
       let is_order = is_order_script_address(address, order_script_hash)
       when is_order is {
         True -> {
           // parse order datum
-          expect InlineDatum(datum) = datum
-          expect datum: OrderDatum = datum
-          let OrderDatum { asset_name, destination_address, .. } = datum
+          expect InlineDatum(order_inline_datum) = datum
+          expect order_datum: OrderDatum = order_inline_datum
+          let OrderDatum { asset_name, destination_address, .. } = order_datum
+
+          // check order hash enough lovelace for hal_nft_price
+          let does_order_have_enough_lovelace =
+            value.lovelace_of(order_input_value) >= hal_nft_price
+          expect does_order_have_enough_lovelace
 
           // parse proofs
           expect [mpt_proof, ..rest_proofs] = proofs
@@ -62,6 +69,7 @@ pub fn all_orders_are_satisfied(
             rest_inputs,
             rest_outputs,
             policy_id,
+            hal_nft_price,
             cip68_script_address,
             rest_proofs,
             new_root,
@@ -76,6 +84,7 @@ pub fn all_orders_are_satisfied(
             rest_inputs,
             outputs,
             policy_id,
+            hal_nft_price,
             cip68_script_address,
             proofs,
             root,

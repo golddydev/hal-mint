@@ -26,11 +26,16 @@ pub const mint_version: Int = 0
 pub const new_policy_id: PolicyId =
   #"12345678123456781234567812345678123456781234567812345678"
 
-pub const hal_nft_price: Int = 180_000_000
-
 pub const allowed_minter_0: VerificationKeyHash = #"11112222"
 
 pub const allowed_minter_1: VerificationKeyHash = #"33334444"
+
+pub const hal_nft_price: Int = 180_000_000
+
+pub fn payment_address() -> Address {
+  credential.from_verification_key(#"8888")
+    |> credential.with_delegation_key(#"8989")
+}
 
 pub fn cip68_script_address() -> Address {
   credential.from_verification_key(#"8888")
