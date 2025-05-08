@@ -10,7 +10,7 @@ use hal_nft_mint/orders.{OrderDatum}
 
 // This function checks only new handles orders are satisfied
 pub fn all_orders_are_satisfied(
-  order_script_hash: ScriptHash,
+  order_spend_script_address: Address,
   inputs: List<Input>,
   outputs: List<Output>,
   policy_id: PolicyId,
@@ -27,7 +27,7 @@ pub fn all_orders_are_satisfied(
     [order_input, ..rest_inputs] -> {
       let Output { address, datum, value: order_input_value, .. } =
         order_input.output
-      let is_order = is_order_script_address(address, order_script_hash)
+      let is_order = address == order_spend_script_address
       when is_order is {
         True -> {
           // parse order datum
@@ -65,7 +65,7 @@ pub fn all_orders_are_satisfied(
             update_root(root, asset_name, mpt_proof, ref_output_datum_hash)
 
           all_orders_are_satisfied(
-            order_script_hash,
+            order_spend_script_address,
             rest_inputs,
             rest_outputs,
             policy_id,
@@ -80,7 +80,7 @@ pub fn all_orders_are_satisfied(
 
         False ->
           all_orders_are_satisfied(
-            order_script_hash,
+            order_spend_script_address,
             rest_inputs,
             outputs,
             policy_id,
@@ -93,16 +93,6 @@ pub fn all_orders_are_satisfied(
           )
       }
     }
-  }
-}
-
-fn is_order_script_address(
-  address: Address,
-  order_script_hash: ScriptHash,
-) -> Bool {
-  when address.payment_credential is {
-    ScriptCredential(sc) -> sc == order_script_hash
-    _ -> False
   }
 }
 

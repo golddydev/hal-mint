@@ -16,11 +16,6 @@ name = "aiken-lang/merkle-patricia-forestry"
 version = "1.1.0"
 source = "github"
 
-[[requirements]]
-name = "SundaeSwap-finance/aicone"
-version = "497e4dd59c1f1e02efacdee0c577ffcd030326bf"
-source = "github"
-
 [[packages]]
 name = "aiken-lang/stdlib"
 version = "1.9.0"
@@ -36,12 +31,6 @@ source = "github"
 [[packages]]
 name = "aiken-lang/merkle-patricia-forestry"
 version = "1.1.0"
-requirements = []
-source = "github"
-
-[[packages]]
-name = "SundaeSwap-finance/aicone"
-version = "497e4dd59c1f1e02efacdee0c577ffcd030326bf"
 requirements = []
 source = "github"
 

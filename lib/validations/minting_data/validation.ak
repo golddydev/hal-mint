@@ -44,7 +44,7 @@ pub fn can_mint(
     hal_nft_price,
     payment_address,
     cip68_script_address,
-    order_script_hash,
+    order_spend_script_address,
     ..
   } = settings_datum
 
@@ -77,7 +77,7 @@ pub fn can_mint(
     expected_mint_value,
   <-
     all_orders_are_satisfied(
-      order_script_hash,
+      order_spend_script_address,
       inputs,
       rest_outputs,
       policy_id,

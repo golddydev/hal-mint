@@ -9,7 +9,8 @@
     "bytearray",
     "cbor",
     "serialise",
-    "kora"
+    "kora",
+    "foldl"
   ],
   "ignorePaths": [
     "node_modules",

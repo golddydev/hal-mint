@@ -24,8 +24,3 @@ source = "github"
 name = "aiken-lang/merkle-patricia-forestry"
 version = "1.1.0"
 source = "github"
-
-[[dependencies]]
-name = "SundaeSwap-finance/aicone"
-version = "497e4dd59c1f1e02efacdee0c577ffcd030326bf"
-source = "github"

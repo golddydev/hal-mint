@@ -11,13 +11,12 @@ use hal_nft_mint/minting_data.{MintingData}
 use hal_nft_mint/orders.{OrderDatum}
 use hal_nft_mint/settings.{Settings}
 use hal_nft_mint/settings_v1.{SettingsV1}
-use sundae/multisig.{Signature}
 use tests/mocks/fake_constants.{
-  allowed_minter_0, allowed_minter_1, cip68_script_address, hal_nft_price,
-  min_order_lovelace, mint_governor, mint_version, minting_data_asset_name,
-  minting_data_asset_policy_id, minting_data_script_hash, new_policy_id,
-  order_script_hash, payment_address, settings_asset_name,
-  settings_asset_policy_id,
+  allowed_minter_0, allowed_minter_1, cip68_script_address, hal_nft_policy_id,
+  hal_nft_price, min_order_lovelace, mint_governor, mint_version,
+  minting_data_asset_name, minting_data_asset_policy_id,
+  minting_data_script_hash, order_mint_policy_id, order_spend_script_address,
+  payment_address, settings_asset_name, settings_asset_policy_id,
 }
 
 pub fn make_output(address: Address, v: Value) -> Output {
@@ -38,8 +37,9 @@ pub fn make_order_input(
 ) -> Input {
   let order: OrderDatum =
     OrderDatum {
-      owner: Signature(owner_verification_key_hash),
+      owner_key_hash: owner_verification_key_hash,
       asset_name,
+      price: 180_000_000,
       destination_address: credential.from_verification_key(
         owner_verification_key_hash,
       ),
@@ -50,7 +50,7 @@ pub fn make_order_input(
       output_index: 0,
     },
     output: Output {
-      address: credential.from_script(order_script_hash),
+      address: order_spend_script_address(),
       value: value.from_lovelace(min_order_lovelace),
       datum: InlineDatum(order),
       reference_script: None,
@@ -66,12 +66,13 @@ pub fn make_test_address() -> Address {
 pub fn make_settings_reference_input() -> Input {
   let settings_v1: SettingsV1 =
     SettingsV1 {
-      policy_id: new_policy_id,
+      policy_id: hal_nft_policy_id,
       allowed_minters: [allowed_minter_0, allowed_minter_1],
       hal_nft_price,
       payment_address: payment_address(),
       cip68_script_address: cip68_script_address(),
-      order_script_hash,
+      order_spend_script_address: order_spend_script_address(),
+      order_mint_policy_id,
       minting_data_script_hash,
     }
   let settings: Settings =

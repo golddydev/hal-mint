@@ -23,7 +23,7 @@ pub const mint_version: Int = 0
 
 // settings v1
 
-pub const new_policy_id: PolicyId =
+pub const hal_nft_policy_id: PolicyId =
   #"12345678123456781234567812345678123456781234567812345678"
 
 pub const allowed_minter_0: VerificationKeyHash = #"11112222"
@@ -42,7 +42,13 @@ pub fn cip68_script_address() -> Address {
     |> credential.with_delegation_key(#"9999")
 }
 
-pub const order_script_hash: ScriptHash = #"5555"
+pub fn order_spend_script_address() -> Address {
+  credential.from_verification_key(#"5555")
+    |> credential.with_delegation_key(#"6666")
+}
+
+pub const order_mint_policy_id: PolicyId =
+  #"12345678123456781234567812345678123456781234567800000000"
 
 pub const minting_data_script_hash: ScriptHash = #"3333"
 

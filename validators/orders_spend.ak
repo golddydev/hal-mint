@@ -1,37 +1,31 @@
+use aiken/list
 use aiken/transaction.{ScriptContext, Spend, Transaction}
 use common/utils.{is_withdrawal_script_executed}
-use hal_nft_mint/orders.{Cancel, Execute, OrderDatum, OrderRedeemer}
+use hal_nft_mint/orders.{OrderDatum}
 use hal_nft_mint/settings.{Settings, find_settings}
-use sundae/multisig
+
+type OrderSpendRedeemer {
+  Execute
+  Cancel
+}
 
 validator {
-  pub fn spend(
+  fn spend(
     datum: OrderDatum,
-    redeemer: OrderRedeemer,
+    redeemer: OrderSpendRedeemer,
     ctx: ScriptContext,
   ) -> Bool {
     let ScriptContext(
-      Transaction {
-        reference_inputs,
-        extra_signatories,
-        validity_range,
-        withdrawals,
-        ..
-      },
+      Transaction { reference_inputs, extra_signatories, withdrawals, .. },
       purpose,
     ) = ctx
     expect Spend(_) = purpose
 
     when redeemer is {
       Cancel -> {
-        expect owner: multisig.MultisigScript = datum.owner
-        // Defer to sundae.multisig
-        multisig.satisfied(
-          owner,
-          extra_signatories,
-          validity_range,
-          withdrawals,
-        )
+        let is_owner_signed = list.has(extra_signatories, datum.owner_key_hash)
+        expect is_owner_signed
+        True
       }
       Execute -> {
         let Settings { mint_governor, .. } = find_settings(reference_inputs)
