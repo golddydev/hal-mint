@@ -4,8 +4,8 @@ use common/hashes.{ScriptHash, VerificationKeyHash}
 
 pub type SettingsV1 {
   policy_id: PolicyId,
-  // anyone who buy minting credit will be listed here
-  allowed_minters: List<VerificationKeyHash>,
+  // who can mint HAL NFTs
+  allowed_minter: VerificationKeyHash,
   // hal nft's price
   hal_nft_price: Int,
   // address to collect HAL NFT's cost

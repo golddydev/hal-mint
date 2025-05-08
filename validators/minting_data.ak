@@ -5,7 +5,7 @@ use validations/minting_data/validation.{can_mint, can_update_mpt}
 
 pub type MintingDataRedeemer {
   // mint hal nfts
-  Mint(List<mpt.Proof>, Int)
+  Mint(List<mpt.Proof>)
   // update MPT root has
   UpdateMPT
 }
@@ -36,8 +36,7 @@ validator(admin_verification_key_hash: VerificationKeyHash) {
     expect Spend(spending_output_reference) = purpose
 
     when redeemer is {
-      Mint(proofs, minter_index) ->
-        can_mint(transaction, spending_output_reference, proofs, minter_index)
+      Mint(proofs) -> can_mint(transaction, spending_output_reference, proofs)
       UpdateMPT -> can_update_mpt(transaction, admin_verification_key_hash)
     }
   }

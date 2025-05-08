@@ -23,7 +23,6 @@ pub fn can_mint(
   transaction: Transaction,
   spending_output_reference: OutputReference,
   proofs: List<mpt.Proof>,
-  minter_index: Int,
 ) -> Bool {
   trace @"can_mint"
   let Transaction {
@@ -40,16 +39,13 @@ pub fn can_mint(
   expect settings_datum: SettingsV1 = settings_data
   let SettingsV1 {
     policy_id,
-    allowed_minters,
-    hal_nft_price,
+    allowed_minter,
     payment_address,
     cip68_script_address,
     order_spend_script_address,
+    order_mint_policy_id,
     ..
   } = settings_datum
-
-  // get allowed minter
-  expect Some(allowed_minter) = allowed_minters |> list.at(minter_index)
 
   // check if allowed_minter sign tx
   expect list.has(extra_signatories, allowed_minter)
@@ -62,12 +58,6 @@ pub fn can_mint(
   // parse outputs
   expect [minting_data_output, payment_output, ..rest_outputs] = outputs
 
-  // get how many nfts are being minted
-  let minting_nfts_count = list.length(proofs)
-
-  // expect at least one nft is being minted
-  expect minting_nfts_count > 0
-
   // build merkle patricia trie from old root hash
   let root = mpt.from_root(mpt_root_hash)
 
@@ -75,17 +65,19 @@ pub fn can_mint(
   let
     new_root,
     expected_mint_value,
+    total_price,
   <-
     all_orders_are_satisfied(
       order_spend_script_address,
+      order_mint_policy_id,
       inputs,
       rest_outputs,
       policy_id,
-      hal_nft_price,
       cip68_script_address,
       proofs,
       root,
       value.zero(),
+      0,
     )
 
   // calculate new root and expected mint value
@@ -104,24 +96,16 @@ pub fn can_mint(
   expect minting_data_output.reference_script == None
 
   // check payment output
-  let total_hal_nfts_price = hal_nft_price * minting_nfts_count
   let Output {
     address: payment_output_address,
     value: payment_output_value,
-    datum: payment_output_datum,
-    reference_script: payment_output_reference_script,
+    ..
   } = payment_output
   expect payment_output_address == payment_address
-  expect payment_output_datum == InlineDatum(Void)
-  expect value.lovelace_of(payment_output_value) >= total_hal_nfts_price
-  expect payment_output_reference_script == None
+  expect value.lovelace_of(payment_output_value) >= total_price
 
   // check minted handles
-  expect
-    value.merge(
-      value.from_minted_value(mint),
-      value.negate(expected_mint_value),
-    ) == value.zero()
+  expect value.from_minted_value(mint) == expected_mint_value
 
   True
 }

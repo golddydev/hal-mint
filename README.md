@@ -158,11 +158,9 @@ pub type MintingDataRedeemer {
 
   `proofs`: `List<mpt.Proof>` Merkle Trie's Proof of asset to mint (inclusion proof with old value)
 
-  `minter_index`: `Int` Minter's index in `allowed_minters` to sign transaction
-
   - Find `settings` asset and its input from reference inputs and parse `Settings` and `SettingsV1`
 
-  - Get `allowed_minter` from `allowed_minters` using `minter_index`
+  - Get `allowed_minter` from `SettingsV1`
 
     And Check tx is signed by `allowed_minter`
 

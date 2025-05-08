@@ -26,9 +26,7 @@ pub const mint_version: Int = 0
 pub const hal_nft_policy_id: PolicyId =
   #"12345678123456781234567812345678123456781234567812345678"
 
-pub const allowed_minter_0: VerificationKeyHash = #"11112222"
-
-pub const allowed_minter_1: VerificationKeyHash = #"33334444"
+pub const allowed_minter: VerificationKeyHash = #"11112222"
 
 pub const hal_nft_price: Int = 180_000_000
 

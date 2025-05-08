@@ -1,29 +1,30 @@
 use aiken/bytearray
 use aiken/merkle_patricia_forestry as mpt
 use aiken/transaction.{InlineDatum, Input, Output}
-use aiken/transaction/credential.{Address, ScriptCredential}
+use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId, Value}
 use common/cip68.{prefix_100, prefix_222}
-use common/hashes.{DatumHash, ScriptHash}
+use common/hashes.{DatumHash}
 use common/utils.{get_datum_hash}
 use hal_nft_mint/orders.{OrderDatum}
 
 // This function checks only new handles orders are satisfied
 pub fn all_orders_are_satisfied(
   order_spend_script_address: Address,
+  order_mint_policy_id: PolicyId,
   inputs: List<Input>,
   outputs: List<Output>,
   policy_id: PolicyId,
-  hal_nft_price: Int,
   cip68_script_address: Address,
   proofs: List<mpt.Proof>,
   root: mpt.MerklePatriciaForestry,
   expected_mint_value: Value,
-  continuation: fn(mpt.MerklePatriciaForestry, Value) -> result,
+  total_price: Int,
+  continuation: fn(mpt.MerklePatriciaForestry, Value, Int) -> result,
 ) -> result {
   // go through inputs and process order UTxO
   when inputs is {
-    [] -> continuation(root, expected_mint_value)
+    [] -> continuation(root, expected_mint_value, total_price)
     [order_input, ..rest_inputs] -> {
       let Output { address, datum, value: order_input_value, .. } =
         order_input.output
@@ -31,17 +32,19 @@ pub fn all_orders_are_satisfied(
       when is_order is {
         True -> {
           // parse order datum
-          expect InlineDatum(order_inline_datum) = datum
-          expect order_datum: OrderDatum = order_inline_datum
-          let OrderDatum { asset_name, destination_address, .. } = order_datum
+          expect InlineDatum(datum) = datum
+          expect order_datum: OrderDatum = datum
+          let OrderDatum { asset_name, price, destination_address, .. } =
+            order_datum
 
-          // check order hash enough lovelace for hal_nft_price
-          let does_order_have_enough_lovelace =
-            value.lovelace_of(order_input_value) >= hal_nft_price
-          expect does_order_have_enough_lovelace
-
-          // parse proofs
-          expect [mpt_proof, ..rest_proofs] = proofs
+          // check order has order nft
+          let has_order_nft =
+            value.quantity_of(
+              order_input_value,
+              order_mint_policy_id,
+              asset_name,
+            ) == 1
+          expect has_order_nft
 
           // extract ref & user output
           // check minted assets are correctly sent to correct address
@@ -58,22 +61,29 @@ pub fn all_orders_are_satisfied(
               expected_mint_value,
             )
 
+          // parse proofs
+          expect [mpt_proof, ..rest_proofs] = proofs
+
           // update root
           // this function also checks asset name is in trie
           // with old value (empty bytearray)
           let new_root =
             update_root(root, asset_name, mpt_proof, ref_output_datum_hash)
 
+          // update total price
+          let new_total_price = total_price + price
+
           all_orders_are_satisfied(
             order_spend_script_address,
+            order_mint_policy_id,
             rest_inputs,
             rest_outputs,
             policy_id,
-            hal_nft_price,
             cip68_script_address,
             rest_proofs,
             new_root,
             new_mint_value,
+            new_total_price,
             continuation,
           )
         }
@@ -81,14 +91,15 @@ pub fn all_orders_are_satisfied(
         False ->
           all_orders_are_satisfied(
             order_spend_script_address,
+            order_mint_policy_id,
             rest_inputs,
             outputs,
             policy_id,
-            hal_nft_price,
             cip68_script_address,
             proofs,
             root,
             expected_mint_value,
+            total_price,
             continuation,
           )
       }

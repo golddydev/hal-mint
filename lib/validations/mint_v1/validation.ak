@@ -13,7 +13,7 @@ pub fn can_mint_nfts(
   transaction: Transaction,
   minting_data_script_hash: ScriptHash,
 ) -> Bool {
-  trace @"Start Mint V1"
+  trace @"can_mint_nfts"
   let Transaction { inputs, .. } = transaction
 
   // check mpt root hash is correctly updated
@@ -24,9 +24,4 @@ pub fn can_mint_nfts(
       minting_data_script_hash,
     )
   True
-}
-
-pub fn can_burn_nfts(_transaction: Transaction) -> Bool {
-  trace @"Burn is disabled now"
-  False
 }
