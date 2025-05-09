@@ -1,14 +1,14 @@
 use aiken/list
 use aiken/transaction.{ScriptContext, Spend, Transaction}
 use aiken/transaction/value.{PolicyId}
-use hal_nft_mint/orders.{OrderDatum}
+use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 
 type OrderSpendRedeemer {
   Execute
   Cancel
 }
 
-validator(hal_policy_id: PolicyId) {
+validator(hal_policy_id: PolicyId, order_mint_policy_id: PolicyId) {
   fn spend(
     datum: OrderDatum,
     redeemer: OrderSpendRedeemer,
@@ -32,6 +32,14 @@ validator(hal_policy_id: PolicyId) {
       Cancel -> {
         let is_owner_signed = list.has(extra_signatories, datum.owner_key_hash)
         expect is_owner_signed
+
+        let is_order_burnt =
+          value.quantity_of(
+            mint |> value.from_minted_value,
+            order_mint_policy_id,
+            order_asset_name,
+          ) == -1
+        expect is_order_burnt
 
         True
       }
