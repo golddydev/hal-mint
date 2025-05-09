@@ -1,20 +1,20 @@
 use aiken/transaction.{InlineDatum, Output}
 use aiken/transaction/credential.{Address}
-use aiken/transaction/value.{AssetName, PolicyId, Value}
-use hal_nft_mint/orders.{OrderDatum}
+use aiken/transaction/value.{PolicyId, Value}
+use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 
 pub fn are_all_orders_minted(
   own_policy_id: PolicyId,
   hal_nft_price: Int,
   order_spend_script_address: Address,
-  orders: List<(AssetName, Address)>,
+  destination_addresses: List<Address>,
   outputs: List<Output>,
   expected_mint_value: Value,
   continuation: fn(Value) -> result,
 ) -> result {
-  when orders is {
+  when destination_addresses is {
     [] -> continuation(expected_mint_value)
-    [(asset_name, destination_address), ..rest_orders] -> {
+    [destination_address, ..rest_destination_addresses] -> {
       // parse outputs
       expect [output, ..rest_outputs] = outputs
 
@@ -34,24 +34,22 @@ pub fn are_all_orders_minted(
       expect InlineDatum(output_datum) = output_datum
       expect order_datum: OrderDatum = output_datum
       let OrderDatum {
-        asset_name: output_asset_name,
         price,
         destination_address: output_destination_address,
         ..
       } = order_datum
-      expect output_asset_name == asset_name
       expect price == hal_nft_price
       expect output_destination_address == destination_address
 
       // check output value
-      // has order nft and correct amount of lovelace (hal_nft_price)
-      let has_order_nft =
+      // has order token and correct amount of lovelace (hal_nft_price)
+      let has_order_token =
         value.without_lovelace(output_value) == (
           value.zero()
-            |> value.add(own_policy_id, asset_name, 1)
+            |> value.add(own_policy_id, order_asset_name, 1)
         )
       let has_enough_lovelace = value.lovelace_of(output_value) >= hal_nft_price
-      expect has_order_nft
+      expect has_order_token
       expect has_enough_lovelace
 
       // check output reference script is none
@@ -59,14 +57,14 @@ pub fn are_all_orders_minted(
 
       // update expected mint value
       let new_expected_mint_value =
-        expected_mint_value |> value.add(own_policy_id, asset_name, 1)
+        expected_mint_value |> value.add(own_policy_id, order_asset_name, 1)
 
       // continue with rest of orders
       are_all_orders_minted(
         own_policy_id,
         hal_nft_price,
         order_spend_script_address,
-        rest_orders,
+        rest_destination_addresses,
         rest_outputs,
         new_expected_mint_value,
         continuation,

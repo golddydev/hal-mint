@@ -33,12 +33,10 @@ pub fn make_output_with_datum(
 
 pub fn make_order_input(
   owner_verification_key_hash: VerificationKeyHash,
-  asset_name: ByteArray,
 ) -> Input {
   let order: OrderDatum =
     OrderDatum {
       owner_key_hash: owner_verification_key_hash,
-      asset_name,
       price: 180_000_000,
       destination_address: credential.from_verification_key(
         owner_verification_key_hash,

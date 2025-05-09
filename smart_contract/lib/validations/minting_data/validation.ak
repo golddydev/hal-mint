@@ -8,6 +8,7 @@ use common/hashes.{VerificationKeyHash}
 use hal_nft_mint/minting_data.{MintingData, resolve_minting_data}
 use hal_nft_mint/settings.{Settings, find_settings}
 use hal_nft_mint/settings_v1.{SettingsV1}
+use validations/minting_data/types.{Proof}
 use validations/minting_data/utils.{all_orders_are_satisfied}
 
 // Validation:
@@ -22,7 +23,7 @@ use validations/minting_data/utils.{all_orders_are_satisfied}
 pub fn can_mint(
   transaction: Transaction,
   spending_output_reference: OutputReference,
-  proofs: List<mpt.Proof>,
+  proofs: List<Proof>,
 ) -> Bool {
   trace @"can_mint"
   let Transaction {

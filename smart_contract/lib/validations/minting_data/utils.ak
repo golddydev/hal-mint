@@ -6,7 +6,8 @@ use aiken/transaction/value.{PolicyId, Value}
 use common/cip68.{prefix_100, prefix_222}
 use common/hashes.{DatumHash}
 use common/utils.{get_datum_hash}
-use hal_nft_mint/orders.{OrderDatum}
+use hal_nft_mint/orders.{OrderDatum, order_asset_name}
+use validations/minting_data/types.{Proof}
 
 // This function checks only new handles orders are satisfied
 pub fn all_orders_are_satisfied(
@@ -16,7 +17,7 @@ pub fn all_orders_are_satisfied(
   outputs: List<Output>,
   policy_id: PolicyId,
   cip68_script_address: Address,
-  proofs: List<mpt.Proof>,
+  proofs: List<Proof>,
   root: mpt.MerklePatriciaForestry,
   expected_mint_value: Value,
   total_price: Int,
@@ -34,17 +35,20 @@ pub fn all_orders_are_satisfied(
           // parse order datum
           expect InlineDatum(datum) = datum
           expect order_datum: OrderDatum = datum
-          let OrderDatum { asset_name, price, destination_address, .. } =
-            order_datum
+          let OrderDatum { price, destination_address, .. } = order_datum
 
-          // check order has order nft
-          let has_order_nft =
+          // check order has order token
+          let has_order_token =
             value.quantity_of(
               order_input_value,
               order_mint_policy_id,
-              asset_name,
+              order_asset_name,
             ) == 1
-          expect has_order_nft
+          expect has_order_token
+
+          // parse proofs
+          expect [proof, ..rest_proofs] = proofs
+          let Proof { mpt_proof, asset_name } = proof
 
           // extract ref & user output
           // check minted assets are correctly sent to correct address
@@ -60,9 +64,6 @@ pub fn all_orders_are_satisfied(
               destination_address,
               expected_mint_value,
             )
-
-          // parse proofs
-          expect [mpt_proof, ..rest_proofs] = proofs
 
           // update root
           // this function also checks asset name is in trie

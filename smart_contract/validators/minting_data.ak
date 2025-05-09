@@ -1,11 +1,11 @@
-use aiken/merkle_patricia_forestry as mpt
 use aiken/transaction.{ScriptContext, Spend}
 use common/hashes.{VerificationKeyHash}
+use validations/minting_data/types.{Proof}
 use validations/minting_data/validation.{can_mint, can_update_mpt}
 
 pub type MintingDataRedeemer {
   // mint hal nfts
-  Mint(List<mpt.Proof>)
+  Mint(List<Proof>)
   // update MPT root has
   UpdateMPT
 }
