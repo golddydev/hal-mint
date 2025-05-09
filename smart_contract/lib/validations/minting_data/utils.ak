@@ -65,6 +65,11 @@ pub fn all_orders_are_satisfied(
               expected_mint_value,
             )
 
+          // burn order token
+          let new_expected_mint_value =
+            new_mint_value
+              |> value.add(order_mint_policy_id, order_asset_name, -1)
+
           // update root
           // this function also checks asset name is in trie
           // with old value (empty bytearray)
@@ -83,7 +88,7 @@ pub fn all_orders_are_satisfied(
             cip68_script_address,
             rest_proofs,
             new_root,
-            new_mint_value,
+            new_expected_mint_value,
             new_total_price,
             continuation,
           )
