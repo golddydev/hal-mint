@@ -1,3 +1,4 @@
+use aiken/list
 use aiken/transaction.{Transaction}
 use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId}
@@ -42,7 +43,20 @@ pub fn can_mint_orders(
   True
 }
 
-pub fn can_burn_orders(policy_id: PolicyId, transaction: Transaction) -> Bool {
+pub fn can_burn_orders(
+  transaction: Transaction,
+  hal_policy_id: PolicyId,
+) -> Bool {
+  let Transaction { mint, .. } = transaction
+
+  let is_hal_minted =
+    list.has(mint |> value.from_minted_value |> value.policies, hal_policy_id)
+  expect is_hal_minted
+
+  True
+}
+
+pub fn can_cancel_order(policy_id: PolicyId, transaction: Transaction) -> Bool {
   let Transaction { mint, .. } = transaction
 
   let only_burn_one_order_token =
