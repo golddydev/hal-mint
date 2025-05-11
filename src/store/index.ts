@@ -17,24 +17,20 @@ const clear = async (folder: string) => {
   await fs.rm(folder, { recursive: true });
 };
 
-const fillHandles = async (
-  db: Trie,
-  handles: string[],
-  progress: () => void
-) => {
-  for (const handle of handles) {
-    await db.insert(handle, "");
+const fillAssets = async (db: Trie, assets: string[], progress: () => void) => {
+  for (const asset of assets) {
+    await db.insert(asset, "");
     progress();
   }
   console.log(db);
 };
 
-const addHandle = async (db: Trie, key: string, value: string) => {
+const addAsset = async (db: Trie, key: string, value: string) => {
   await db.insert(key, value);
   console.log(db);
 };
 
-const removeHandle = async (db: Trie, key: string) => {
+const removeAsset = async (db: Trie, key: string) => {
   await db.delete(key);
   console.log(db);
 };
@@ -55,12 +51,4 @@ const printProof = async (
   }
 };
 
-export {
-  addHandle,
-  clear,
-  fillHandles,
-  init,
-  inspect,
-  printProof,
-  removeHandle,
-};
+export { addAsset, clear, fillAssets, init, inspect, printProof, removeAsset };

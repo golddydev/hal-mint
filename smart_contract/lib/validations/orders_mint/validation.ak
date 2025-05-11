@@ -24,19 +24,19 @@ pub fn can_mint_orders(
   expect settings_datum: SettingsV1 = settings_data
   let SettingsV1 {
     hal_nft_price,
-    order_spend_script_address,
-    order_mint_policy_id,
+    orders_spend_script_address,
+    orders_mint_policy_id,
     ..
   } = settings_datum
 
   // check order mint policy id is correct
-  expect order_mint_policy_id == own_policy_id
+  expect orders_mint_policy_id == own_policy_id
 
   let expected_mint_value <-
     are_all_orders_minted(
       own_policy_id,
       hal_nft_price,
-      order_spend_script_address,
+      orders_spend_script_address,
       destination_addresses,
       outputs,
       value.zero(),

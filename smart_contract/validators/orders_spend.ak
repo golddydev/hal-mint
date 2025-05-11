@@ -14,9 +14,9 @@ type OrderSpendRedeemer {
 //
 // ===== Parameters =====
 // `hal_policy_id`: Policy id of HAL NFT
-// `order_mint_policy_id`: Policy id of Order NFT
+// `orders_mint_policy_id`: Policy id of Order NFT
 //
-validator(hal_policy_id: PolicyId, order_mint_policy_id: PolicyId) {
+validator(hal_policy_id: PolicyId, orders_mint_policy_id: PolicyId) {
   fn spend(
     datum: OrderDatum,
     redeemer: OrderSpendRedeemer,
@@ -32,7 +32,7 @@ validator(hal_policy_id: PolicyId, order_mint_policy_id: PolicyId) {
           transaction,
           datum,
           spending_output_reference,
-          order_mint_policy_id,
+          orders_mint_policy_id,
         )
     }
   }

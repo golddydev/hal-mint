@@ -127,7 +127,7 @@ const deploy = async (params: DeployParams): Promise<DeployData> => {
           ).data.toCbor()
         ),
         validatorHash: ordersSpendConfig.ordersValidatorHash.toHex(),
-        scriptAddress: ordersSpendConfig.ordersValidatorAddress.toBech32(),
+        scriptAddress: ordersSpendConfig.ordersSpendValidatorAddress.toBech32(),
       };
     default:
       throw new Error(

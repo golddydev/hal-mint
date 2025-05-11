@@ -3,15 +3,21 @@ import {
   addValues,
   makeAssetClass,
   makeAssets,
+  makeInlineTxOutputDatum,
   makeValue,
 } from "@helios-lang/ledger";
 import { SimpleWallet } from "@helios-lang/tx-utils";
-import { decodeUplcProgramV2FromCbor, UplcProgramV2 } from "@helios-lang/uplc";
+import {
+  decodeUplcProgramV2FromCbor,
+  makeByteArrayData,
+  makeConstrData,
+  UplcProgramV2,
+} from "@helios-lang/uplc";
 import colors from "ansi-colors";
 import fs from "fs/promises";
 import { Result } from "ts-res";
 
-import { PREFIX_000, PREFIX_100, PREFIX_222 } from "../src/constants/index.js";
+import { PREFIX_100, PREFIX_222 } from "../src/constants/index.js";
 import { BuildTxError, invariant, TxSuccessResult } from "../src/index.js";
 
 const alwaysSucceedMintUplcProgram = (): UplcProgramV2 => {
@@ -37,35 +43,15 @@ const balanceOf = async (wallet: SimpleWallet) => {
   return balance;
 };
 
-const userAssetClass = (policyId: string, handleName: string) => {
-  return makeAssetClass(
-    `${policyId}.${PREFIX_222}${Buffer.from(handleName).toString("hex")}`
-  );
-};
-
 const referenceAssetClass = (policyId: string, handleName: string) => {
   return makeAssetClass(
     `${policyId}.${PREFIX_100}${Buffer.from(handleName).toString("hex")}`
   );
 };
 
-const virtualSubHandleAssetClass = (policyId: string, handleName: string) => {
+const userAssetClass = (policyId: string, handleName: string) => {
   return makeAssetClass(
-    `${policyId}.${PREFIX_000}${Buffer.from(handleName).toString("hex")}`
-  );
-};
-
-const userAssetValue = (policyId: string, handleName: string) => {
-  return makeValue(
-    1n,
-    makeAssets([
-      [
-        makeAssetClass(
-          `${policyId}.${PREFIX_222}${Buffer.from(handleName).toString("hex")}`
-        ),
-        1n,
-      ],
-    ])
+    `${policyId}.${PREFIX_222}${Buffer.from(handleName).toString("hex")}`
   );
 };
 
@@ -83,13 +69,13 @@ const referenceAssetValue = (policyId: string, handleName: string) => {
   );
 };
 
-const virtualSubHandleAssetValue = (policyId: string, handleName: string) => {
+const userAssetValue = (policyId: string, handleName: string) => {
   return makeValue(
     1n,
     makeAssets([
       [
         makeAssetClass(
-          `${policyId}.${PREFIX_000}${Buffer.from(handleName).toString("hex")}`
+          `${policyId}.${PREFIX_222}${Buffer.from(handleName).toString("hex")}`
         ),
         1n,
       ],
@@ -155,18 +141,24 @@ const logMemAndCpu = async (
   );
 };
 
+const makeHalAssetDatum = (assetName: string) => {
+  const hexName = Buffer.from(assetName).toString("hex");
+  return makeInlineTxOutputDatum(
+    makeConstrData(0, [makeByteArrayData(hexName)])
+  );
+};
+
 export {
   alwaysSucceedMintUplcProgram,
   balanceOf,
   extractScriptCborsFromUplcProgram,
   getRandomString,
   logMemAndCpu,
+  makeHalAssetDatum,
   referenceAssetClass,
   referenceAssetValue,
   userAssetClass,
   userAssetValue,
-  virtualSubHandleAssetClass,
-  virtualSubHandleAssetValue,
   writeFailedTxJson,
   writeSuccessfulTxJson,
 };

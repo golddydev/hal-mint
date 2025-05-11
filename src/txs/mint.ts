@@ -12,7 +12,7 @@ import { TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
 import {
-  ORDER_ASSET_NAME,
+  ORDER_ASSET_HEX_NAME,
   PREFIX_100,
   PREFIX_222,
 } from "../constants/index.js";
@@ -166,7 +166,7 @@ const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
   );
   const orderTokenAssetClass = makeAssetClass(
     ordersMintPolicyHash,
-    ORDER_ASSET_NAME
+    ORDER_ASSET_HEX_NAME
   );
   // burn orders NFT same amount as orders length
   const orderTokenValue: [ByteArrayLike, IntLike][] = [

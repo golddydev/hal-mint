@@ -44,8 +44,8 @@ pub fn can_mint(
     allowed_minter,
     payment_address,
     cip68_script_address,
-    order_spend_script_address,
-    order_mint_policy_id,
+    orders_spend_script_address,
+    orders_mint_policy_id,
     ..
   } = settings_datum
 
@@ -70,8 +70,8 @@ pub fn can_mint(
     total_price,
   <-
     all_orders_are_satisfied(
-      order_spend_script_address,
-      order_mint_policy_id,
+      orders_spend_script_address,
+      orders_mint_policy_id,
       inputs,
       rest_outputs,
       policy_id,

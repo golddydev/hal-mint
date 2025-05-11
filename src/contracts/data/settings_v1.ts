@@ -20,8 +20,8 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     hal_nft_price,
     payment_address,
     cip68_script_address,
-    order_spend_script_address,
-    order_mint_policy_id,
+    orders_spend_script_address,
+    orders_mint_policy_id,
     minting_data_script_hash,
   } = settings;
 
@@ -31,8 +31,8 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     makeIntData(hal_nft_price),
     buildAddressData(payment_address as ShelleyAddress),
     buildAddressData(cip68_script_address as ShelleyAddress),
-    buildAddressData(order_spend_script_address as ShelleyAddress),
-    makeByteArrayData(order_mint_policy_id),
+    buildAddressData(orders_spend_script_address as ShelleyAddress),
+    makeByteArrayData(orders_mint_policy_id),
     makeByteArrayData(minting_data_script_hash),
   ]);
 };
@@ -72,16 +72,16 @@ const decodeSettingsV1Data = (
     network
   );
 
-  // order_spend_script_address
-  const order_spend_script_address = decodeAddressFromData(
+  // orders_spend_script_address
+  const orders_spend_script_address = decodeAddressFromData(
     settingsV1ConstrData.fields[5],
     network
   );
 
-  // order_mint_policy_id
-  const order_mint_policy_id = expectByteArrayData(
+  // orders_mint_policy_id
+  const orders_mint_policy_id = expectByteArrayData(
     settingsV1ConstrData.fields[6],
-    "order_mint_policy_id must be ByteArray"
+    "orders_mint_policy_id must be ByteArray"
   ).toHex();
 
   // minting_data_script_hash
@@ -96,8 +96,8 @@ const decodeSettingsV1Data = (
     hal_nft_price,
     payment_address,
     cip68_script_address,
-    order_spend_script_address,
-    order_mint_policy_id,
+    orders_spend_script_address,
+    orders_mint_policy_id,
     minting_data_script_hash,
   };
 };

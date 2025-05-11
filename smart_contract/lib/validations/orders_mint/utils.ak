@@ -6,7 +6,7 @@ use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 pub fn are_all_orders_minted(
   own_policy_id: PolicyId,
   hal_nft_price: Int,
-  order_spend_script_address: Address,
+  orders_spend_script_address: Address,
   destination_addresses: List<Address>,
   outputs: List<Output>,
   expected_mint_value: Value,
@@ -26,7 +26,7 @@ pub fn are_all_orders_minted(
       } = output
 
       // output address must be order spend script address
-      expect output_address == order_spend_script_address
+      expect output_address == orders_spend_script_address
 
       // check output datum is order datum
       // and asset name and price and destination address
@@ -62,7 +62,7 @@ pub fn are_all_orders_minted(
       are_all_orders_minted(
         own_policy_id,
         hal_nft_price,
-        order_spend_script_address,
+        orders_spend_script_address,
         rest_destination_addresses,
         rest_outputs,
         new_expected_mint_value,

@@ -11,8 +11,8 @@ use validations/minting_data/types.{Proof}
 
 // This function checks only new handles orders are satisfied
 pub fn all_orders_are_satisfied(
-  order_spend_script_address: Address,
-  order_mint_policy_id: PolicyId,
+  orders_spend_script_address: Address,
+  orders_mint_policy_id: PolicyId,
   inputs: List<Input>,
   outputs: List<Output>,
   policy_id: PolicyId,
@@ -29,7 +29,7 @@ pub fn all_orders_are_satisfied(
     [order_input, ..rest_inputs] -> {
       let Output { address, datum, value: order_input_value, .. } =
         order_input.output
-      let is_order = address == order_spend_script_address
+      let is_order = address == orders_spend_script_address
       when is_order is {
         True -> {
           // parse order datum
@@ -41,7 +41,7 @@ pub fn all_orders_are_satisfied(
           let has_order_token =
             value.quantity_of(
               order_input_value,
-              order_mint_policy_id,
+              orders_mint_policy_id,
               order_asset_name,
             ) == 1
           expect has_order_token
@@ -63,7 +63,7 @@ pub fn all_orders_are_satisfied(
               cip68_script_address,
               destination_address,
               expected_mint_value,
-              order_mint_policy_id,
+              orders_mint_policy_id,
             )
 
           // update root
@@ -76,8 +76,8 @@ pub fn all_orders_are_satisfied(
           let new_total_price = total_price + price
 
           all_orders_are_satisfied(
-            order_spend_script_address,
-            order_mint_policy_id,
+            orders_spend_script_address,
+            orders_mint_policy_id,
             rest_inputs,
             rest_outputs,
             policy_id,
@@ -92,8 +92,8 @@ pub fn all_orders_are_satisfied(
 
         False ->
           all_orders_are_satisfied(
-            order_spend_script_address,
-            order_mint_policy_id,
+            orders_spend_script_address,
+            orders_mint_policy_id,
             rest_inputs,
             outputs,
             policy_id,
@@ -134,7 +134,7 @@ fn check_ref_and_user_outputs(
   cip68_script_address: Address,
   destination_address: Address,
   mint_value: Value,
-  order_mint_policy_id: PolicyId,
+  orders_mint_policy_id: PolicyId,
 ) -> (Value, DatumHash) {
   // make ref asset name and user asset name from asset_name
   let ref_asset_name = bytearray.concat(prefix_100, asset_name)
@@ -171,7 +171,7 @@ fn check_ref_and_user_outputs(
     mint_value
       |> value.add(policy_id, ref_asset_name, 1)
       |> value.add(policy_id, user_asset_name, 1)
-      |> value.add(order_mint_policy_id, order_asset_name, -1)
+      |> value.add(orders_mint_policy_id, order_asset_name, -1)
 
   (new_mint_value, ref_output_datum_hash)
 }

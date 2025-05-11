@@ -39,4 +39,5 @@ export const LEGACY_POLICY_ID =
 export const SETTINGS_HANDLE_NAME = "settings@hal_mint";
 export const MINTING_DATA_HANDLE_NAME = "root@hal_mint";
 
-export const ORDER_ASSET_NAME = "HAL_ORDER";
+export const ORDER_ASSET_UTF8_NAME = "HAL_ORDER";
+export const ORDER_ASSET_HEX_NAME = "48414c5f4f52444552";

@@ -1,4 +1,3 @@
-import { bytesToHex } from "@helios-lang/codec-utils";
 import {
   makeAssetClass,
   makeAssets,
@@ -27,13 +26,11 @@ import { test, vi } from "vitest";
 
 import {
   buildContracts,
-  buildHandlePriceInfoData,
   buildMintingData,
   buildSettingsData,
   buildSettingsV1Data,
   DeployedScripts,
-  HandlePriceInfo,
-  HandlePrices,
+  fillAssets,
   init,
   MintingData,
   Settings,
@@ -52,15 +49,13 @@ const MIN_LOVELACE = 5_000_000n;
 const dbPath = "./tests/test-db";
 
 const settingsAssetClass = makeAssetClass(
-  "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a.000de14064656d694068616e646c655f73657474696e6773"
+  "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a.000de14073657474696e67734068616c5f6d696e74"
 );
 const mintingDataAssetClass = makeAssetClass(
-  "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a.000de14068616e646c655f726f6f744068616e646c655f73657474696e6773"
+  "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a.000de140726f6f744068616c5f6d696e74"
 );
 
-const handlePriceAssetClass = makeAssetClass(
-  "f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a.000de14070726963654068616e646c655f73657474696e6773"
-);
+const HAL_NFT_PRICE = 180_000_000n;
 
 const deployScript = async (
   scriptType: ScriptType,
@@ -119,7 +114,6 @@ const setup = async () => {
     makeAssets([
       [settingsAssetClass, 1n],
       [mintingDataAssetClass, 1n],
-      [handlePriceAssetClass, 1n],
     ])
   );
   emulator.tick(200);
@@ -135,12 +129,12 @@ const setup = async () => {
   const allowedMinterPubKeyHash: string =
     allowedMinterWallet.spendingPubKeyHash.toHex();
 
-  // pz script wallet
-  const pzWallet = emulator.createWallet(ACCOUNT_LOVELACE);
+  // cip68 script wallet
+  const cip68Wallet = emulator.createWallet(ACCOUNT_LOVELACE);
   emulator.tick(200);
 
-  // treasury wallet
-  const treasuryWallet = emulator.createWallet(ACCOUNT_LOVELACE);
+  // payment wallet
+  const paymentWallet = emulator.createWallet(ACCOUNT_LOVELACE);
   emulator.tick(200);
 
   // users wallet
@@ -160,26 +154,26 @@ const setup = async () => {
   const contractsConfig = buildContracts({
     network,
     mint_version: mintVersion,
-    legacy_policy_id: legacyPolicyId,
     admin_verification_key_hash: adminPubKeyHash,
   });
   const {
-    handlePolicyHash,
+    halPolicyHash,
     mintProxy: mintProxyConfig,
     mintV1: mintV1Config,
     mintingData: mintingDataConfig,
-    orders: ordersConfig,
+    ordersMint: ordersMintConfig,
+    ordersSpend: ordersSpendConfig,
   } = contractsConfig;
 
   // ============ prepare settings data ============
   const settingsV1: SettingsV1 = {
-    policy_id: handlePolicyHash.toHex(),
-    allowed_minters: [allowedMinterPubKeyHash],
-    valid_handle_price_assets: [handlePriceAssetClass.toString()],
-    treasury_address: treasuryWallet.address,
-    treasury_fee_percentage: 90n,
-    pz_script_address: pzWallet.address,
-    order_script_hash: ordersConfig.ordersValidatorHash.toHex(),
+    policy_id: halPolicyHash.toHex(),
+    allowed_minter: allowedMinterPubKeyHash,
+    hal_nft_price: HAL_NFT_PRICE,
+    payment_address: paymentWallet.address,
+    cip68_script_address: cip68Wallet.address,
+    orders_spend_script_address: ordersSpendConfig.ordersSpendValidatorAddress,
+    orders_mint_policy_id: ordersMintConfig.ordersMintPolicyHash.toHex(),
     minting_data_script_hash:
       mintingDataConfig.mintingDataValidatorHash.toHex(),
   };
@@ -189,25 +183,21 @@ const setup = async () => {
     data: buildSettingsV1Data(settingsV1),
   };
 
+  // prepare db
+  // insert 10,000 hal assets names
+  // with empty string value
+  const assetNames = Array.from({ length: 100 }, (_, i) => `hal-${i + 1}`);
+  await fillAssets(db, assetNames, () => {});
+  console.log("======= DB Pre Filled =======\n");
+  console.log("DB Root Hash:\n", db.hash?.toString("hex"));
+  console.log("===========================\n");
+
   // ============ prepare minting data ============
   const mintingData: MintingData = {
-    mpt_root_hash: db.hash?.toString("hex") || Buffer.alloc(32).toString("hex"),
+    mpt_root_hash: db.hash?.toString("hex"),
   };
 
-  // ============ prepare handle price info ============
-  const handlePriceInfo: HandlePriceInfo = {
-    current_data: [1_000_000_000n, 500_000_000n, 100_000_000n, 10_000_000n],
-    prev_data: [1_000_000_000n, 500_000_000n, 80_000_000n, 5_000_000n],
-    updated_at: BigInt(Date.now()),
-  };
-  const latestHandlePrices: HandlePrices = {
-    basic: 10,
-    common: 100,
-    rare: 500,
-    ultraRare: 1000,
-  };
-
-  // ============ prepare settings and minting data asset and handle price asset ============
+  // ============ prepare settings and minting data asset ============
   const prepareAssetsTxBuilder = makeTxBuilder({ isMainnet });
   const fundWalletUTxOs = await fundWallet.utxos;
   prepareAssetsTxBuilder.spendUnsafe(fundWalletUTxOs);
@@ -221,11 +211,6 @@ const setup = async () => {
     makeValue(MIN_LOVELACE, makeAssets([[mintingDataAssetClass, 1n]])),
     makeInlineTxOutputDatum(buildMintingData(mintingData))
   );
-  prepareAssetsTxBuilder.payUnsafe(
-    allowedMinterWallet.address,
-    makeValue(MIN_LOVELACE, makeAssets([[handlePriceAssetClass, 1n]])),
-    makeInlineTxOutputDatum(buildHandlePriceInfoData(handlePriceInfo))
-  );
   const prepareAssetsTx = await prepareAssetsTxBuilder.build({
     changeAddress: fundWallet.address,
   });
@@ -238,15 +223,12 @@ const setup = async () => {
   const mintingDataAssetTxInput = await emulator.getUtxo(
     makeTxOutputId(prepareAssetsTxId, 1)
   );
-  const handlePriceInfoAssetTxInput = await emulator.getUtxo(
-    makeTxOutputId(prepareAssetsTxId, 2)
-  );
 
   // ============ Deploy Scripts ============
   const [mintProxyScriptDetails, mintProxyScriptTxInput] = await deployScript(
     ScriptType.DEMI_MINT_PROXY,
     emulator,
-    pzWallet,
+    fundWallet,
     ...extractScriptCborsFromUplcProgram(
       mintProxyConfig.mintProxyMintUplcProgram
     )
@@ -254,24 +236,33 @@ const setup = async () => {
   const [mintV1ScriptDetails, mintV1ScriptTxInput] = await deployScript(
     ScriptType.DEMI_MINT,
     emulator,
-    pzWallet,
+    fundWallet,
     ...extractScriptCborsFromUplcProgram(mintV1Config.mintV1WithdrawUplcProgram)
   );
   const [mintingDataScriptDetails, mintingDataScriptTxInput] =
     await deployScript(
       ScriptType.DEMI_MINTING_DATA,
       emulator,
-      pzWallet,
+      fundWallet,
       ...extractScriptCborsFromUplcProgram(
         mintingDataConfig.mintingDataSpendUplcProgram
       )
     );
-  const [ordersScriptDetails, ordersScriptTxInput] = await deployScript(
+  const [ordersMintScriptDetails, ordersMintScriptTxInput] = await deployScript(
     ScriptType.DEMI_ORDERS,
     emulator,
-    pzWallet,
-    ...extractScriptCborsFromUplcProgram(ordersConfig.ordersSpendUplcProgram)
+    fundWallet,
+    ...extractScriptCborsFromUplcProgram(ordersMintConfig.ordersMintUplcProgram)
   );
+  const [ordersSpendScriptDetails, ordersSpendScriptTxInput] =
+    await deployScript(
+      ScriptType.DEMI_ORDERS,
+      emulator,
+      fundWallet,
+      ...extractScriptCborsFromUplcProgram(
+        ordersSpendConfig.ordersSpendUplcProgram
+      )
+    );
 
   // ============ mock modules ============
   // mock constants
@@ -285,89 +276,49 @@ const setup = async () => {
     };
   });
 
+  const deployedScripts: DeployedScripts = {
+    mintProxyScriptDetails,
+    mintProxyScriptTxInput,
+    mintV1ScriptDetails,
+    mintV1ScriptTxInput,
+    mintingDataScriptDetails,
+    mintingDataScriptTxInput,
+    ordersMintScriptDetails,
+    ordersMintScriptTxInput,
+    ordersSpendScriptDetails,
+    ordersSpendScriptTxInput,
+  };
+
   // hoist mocked functions
   const {
-    mockedFetchDeployedScript,
     mockedFetchAllDeployedScripts,
     mockedFetchSettings,
     mockedFetchMintingData,
-    mockedFetchHandlePriceInfoData,
     mockedGetBlockfrostV0Client,
     mockedGetNetwork,
   } = vi.hoisted(() => {
     return {
-      mockedFetchDeployedScript: vi.fn(),
       mockedFetchAllDeployedScripts: vi.fn(),
       mockedFetchSettings: vi.fn(),
       mockedFetchMintingData: vi.fn(),
-      mockedFetchHandlePriceInfoData: vi.fn(),
       mockedGetBlockfrostV0Client: vi.fn(),
       mockedGetNetwork: vi.fn(),
     };
   });
-
-  // mock getBlockfrostV0Client
-  vi.mock("../src/helpers/blockfrost/client.ts", () => {
-    return {
-      getBlockfrostV0Client: mockedGetBlockfrostV0Client,
-    };
-  });
-  mockedGetBlockfrostV0Client.mockReturnValue(
-    new Promise((resolve) => resolve(emulator as unknown as BlockfrostV0Client))
-  );
-
-  // mock getNetwork
-  vi.mock("../src/helpers/blockfrost/network.ts", () => {
-    return { getNetwork: mockedGetNetwork };
-  });
-  mockedGetNetwork.mockReturnValue(network);
-
-  // mock fetchDeployedScript
-  // only use in orders
-  vi.mock("../src/utils/contract.ts", () => {
-    return {
-      fetchDeployedScript: mockedFetchDeployedScript,
-    };
-  });
-  mockedFetchDeployedScript.mockReturnValue(
-    new Promise((resolve) =>
-      resolve({
-        validatorHash: ordersConfig.ordersValidatorHash.toHex(),
-        cbor: bytesToHex(ordersConfig.ordersSpendUplcProgram.toCbor()),
-        unoptimizedCbor: bytesToHex(
-          ordersConfig.ordersSpendUplcProgram.alt!.toCbor()
-        ),
-      } as ScriptDetails)
-    )
-  );
 
   // mock fetchAllDeployedScripts
   vi.mock("../src/txs/deploy.ts", () => {
     return { fetchAllDeployedScripts: mockedFetchAllDeployedScripts };
   });
   mockedFetchAllDeployedScripts.mockReturnValue(
-    new Promise((resolve) =>
-      resolve(
-        Ok({
-          mintProxyScriptDetails,
-          mintProxyScriptTxInput,
-          mintV1ScriptDetails,
-          mintV1ScriptTxInput,
-          mintingDataScriptDetails,
-          mintingDataScriptTxInput,
-          ordersScriptDetails,
-          ordersScriptTxInput,
-        } as DeployedScripts)
-      )
-    )
+    new Promise((resolve) => resolve(Ok(deployedScripts)))
   );
 
-  // mock fetchSettings and fetchMintingData and fetchHandlePriceInfoData
+  // mock fetchSettings and fetchMintingData
   vi.mock("../src/configs/index.js", () => {
     return {
       fetchSettings: mockedFetchSettings,
       fetchMintingData: mockedFetchMintingData,
-      fetchHandlePriceInfoData: mockedFetchHandlePriceInfoData,
     };
   });
   mockedFetchSettings.mockReturnValue(
@@ -385,44 +336,49 @@ const setup = async () => {
       )
     )
   );
-  mockedFetchHandlePriceInfoData.mockReturnValue(
-    new Promise((resolve) =>
-      resolve(Ok({ handlePriceInfo, handlePriceInfoAssetTxInput }))
-    )
+
+  // mock getBlockfrostV0Client
+  vi.mock("../src/helpers/blockfrost/client.ts", () => {
+    return {
+      getBlockfrostV0Client: mockedGetBlockfrostV0Client,
+    };
+  });
+  mockedGetBlockfrostV0Client.mockReturnValue(
+    new Promise((resolve) => resolve(emulator as unknown as BlockfrostV0Client))
   );
 
-  const ordersDetail: Array<{ handleName: string; txInput: TxInput }> = [];
+  // mock getNetwork
+  vi.mock("../src/helpers/blockfrost/network.ts", () => {
+    return { getNetwork: mockedGetNetwork };
+  });
+  mockedGetNetwork.mockReturnValue(network);
+
+  const ordersTxInputs: TxInput[] = [];
 
   return {
     network,
     emulator,
     db,
     contractsConfig,
-    allowedMintersPubKeyHashes: [allowedMinterPubKeyHash],
-    validHandlePriceAssetClasses: [handlePriceAssetClass],
-    legacyMintUplcProgram,
+    allowedMinterPubKeyHash,
     legacyPolicyId,
+    deployedScripts,
     mockedFunctions: {
-      mockedFetchDeployedScript,
       mockedFetchAllDeployedScripts,
       mockedFetchSettings,
       mockedFetchMintingData,
-      mockedFetchHandlePriceInfoData,
       mockedGetBlockfrostV0Client,
       mockedGetNetwork,
     },
     wallets: {
       fundWallet,
       adminWallet,
-      allowedMintersWallets: [allowedMinterWallet],
-      pzWallet,
-      treasuryWallet,
+      allowedMinterWallet,
+      cip68Wallet,
+      paymentWallet,
       usersWallets,
     },
-    handlePrices: {
-      latestHandlePrices,
-    },
-    ordersDetail,
+    ordersTxInputs,
   };
 };
 

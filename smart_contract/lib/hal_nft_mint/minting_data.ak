@@ -5,13 +5,12 @@ use aiken/transaction/value
 const minting_data_asset_policy_id =
   #"f0ff48bbb7bbe9d59a40f1ce90e9e9d0ff5002ec48f232b49ca0fb9a"
 
-// handle_root@hal_settings
+// root@hal_mint
 // hold minting data like mpt root hash
 // NOTE: 
 // must be spent every time 
-// a new handle is minted
-const minting_data_asset_name =
-  #"000de14068616e646c655f726f6f744068616c5f73657474696e6773"
+// a new hal is minted
+const minting_data_asset_name = #"000de140726f6f744068616c5f6d696e74"
 
 pub type MintingData {
   // mpt root hash

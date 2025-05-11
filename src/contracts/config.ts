@@ -85,7 +85,10 @@ const buildContracts = (params: BuildContractsParams) => {
     ordersMintPolicyHash.toHex()
   );
   const ordersValidatorHash = makeValidatorHash(ordersSpendUplcProgram.hash());
-  const ordersValidatorAddress = makeAddress(isMainnet, ordersValidatorHash);
+  const ordersSpendValidatorAddress = makeAddress(
+    isMainnet,
+    ordersValidatorHash
+  );
 
   return {
     halPolicyHash,
@@ -112,7 +115,7 @@ const buildContracts = (params: BuildContractsParams) => {
     ordersSpend: {
       ordersSpendUplcProgram,
       ordersValidatorHash,
-      ordersValidatorAddress,
+      ordersSpendValidatorAddress,
     },
   };
 };

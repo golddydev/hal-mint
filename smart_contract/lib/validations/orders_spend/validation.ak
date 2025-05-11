@@ -27,7 +27,7 @@ pub fn can_cancel_order(
   transaction: Transaction,
   datum: OrderDatum,
   spending_output_reference: OutputReference,
-  order_mint_policy_id: PolicyId,
+  orders_mint_policy_id: PolicyId,
 ) -> Bool {
   let Transaction { inputs, extra_signatories, mint, .. } = transaction
 
@@ -41,7 +41,7 @@ pub fn can_cancel_order(
 
   let expected_mint_value =
     value.zero()
-      |> value.add(order_mint_policy_id, order_asset_name, -1)
+      |> value.add(orders_mint_policy_id, order_asset_name, -1)
   let is_order_burnt = value.from_minted_value(mint) == expected_mint_value
   expect is_order_burnt
 

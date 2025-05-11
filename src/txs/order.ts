@@ -15,7 +15,7 @@ import { makeTxBuilder, NetworkName, TxBuilder } from "@helios-lang/tx-utils";
 import { ScriptDetails } from "@koralabs/kora-labs-common";
 import { Err, Ok, Result } from "ts-res";
 
-import { HAL_NFT_PRICE, ORDER_ASSET_NAME } from "../constants/index.js";
+import { HAL_NFT_PRICE, ORDER_ASSET_HEX_NAME } from "../constants/index.js";
 import {
   buildOrderData,
   buildOrdersMintCancelOrderRedeemer,
@@ -46,7 +46,7 @@ interface RequestParams {
 }
 
 /**
- * @description Request handle to be minted
+ * @description Request asset to be minted
  * @param {RequestParams} params
  * @returns {Promise<Result<TxBuilder,  Error>>} Transaction Result
  */
@@ -86,7 +86,7 @@ const request = async (
   // order value
   const orderTokenAssetClass = makeAssetClass(
     ordersMintPolicyHash,
-    ORDER_ASSET_NAME
+    ORDER_ASSET_HEX_NAME
   );
   const orderTokenValue: [ByteArrayLike, IntLike][] = [
     [orderTokenAssetClass.tokenName, 1n],
@@ -177,7 +177,7 @@ const cancel = async (
   // order value
   const orderTokenAssetClass = makeAssetClass(
     ordersMintPolicyHash,
-    ORDER_ASSET_NAME
+    ORDER_ASSET_HEX_NAME
   );
   const orderTokenValue: [ByteArrayLike, IntLike][] = [
     [orderTokenAssetClass.tokenName, -1n],

@@ -85,7 +85,7 @@ const getOrdersMintUplcProgram = (hal_policy_id: string): UplcProgramV2 => {
   );
   invariant(
     !!optimizedFoundValidator && !!unOptimizedFoundValidator,
-    "Orders Spend Validator not found"
+    "Orders Mint Validator not found"
   );
   return decodeUplcProgramV2FromCbor(optimizedFoundValidator.compiledCode)
     .apply(makeOrdersMintUplcProgramParameter(hal_policy_id))
@@ -101,10 +101,10 @@ const getOrdersSpendUplcProgram = (
   orders_mint_policy_id: string
 ): UplcProgramV2 => {
   const optimizedFoundValidator = optimizedBlueprint.validators.find(
-    (validator) => validator.title == "orders.spend"
+    (validator) => validator.title == "orders_spend.spend"
   );
   const unOptimizedFoundValidator = unOptimizedBlueprint.validators.find(
-    (validator) => validator.title == "orders.spend"
+    (validator) => validator.title == "orders_spend.spend"
   );
   invariant(
     !!optimizedFoundValidator && !!unOptimizedFoundValidator,
