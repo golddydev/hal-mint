@@ -149,4 +149,134 @@ describe.sequential("Koralab H.A.L Tests", () => {
       inspect(db);
     }
   );
+
+  // ======= mint many assets =======
+
+  // user_1 orders many assets - <16 assets>
+  myTest(
+    "user_1 orders many assets - <16 assets>",
+    async ({ network, emulator, wallets, deployedScripts, ordersTxInputs }) => {
+      invariant(
+        Array.isArray(ordersTxInputs),
+        "Orders tx inputs is not an array"
+      );
+
+      const { usersWallets } = wallets;
+      const user1Wallet = usersWallets[0];
+
+      for (let i = 0; i < 16; i++) {
+        const txBuilderResult = await request({
+          network,
+          address: user1Wallet.address,
+          deployedScripts,
+        });
+        invariant(txBuilderResult.ok, "Order tx failed");
+
+        const txBuilder = txBuilderResult.data;
+        const tx = await txBuilder.build({
+          changeAddress: user1Wallet.address,
+          spareUtxos: await user1Wallet.utxos,
+        });
+        tx.addSignatures(await user1Wallet.signTx(tx));
+        const txId = await user1Wallet.submitTx(tx);
+        emulator.tick(200);
+
+        const orderTxInput = await emulator.getUtxo(makeTxOutputId(txId, 0));
+        ordersTxInputs.push(orderTxInput);
+      }
+    }
+  );
+
+  // mint many assets - <16 assets>
+  myTest(
+    "mint many assets - <16 assets>",
+    async ({
+      mockedFunctions,
+      db,
+      network,
+      emulator,
+      wallets,
+      ordersTxInputs,
+    }) => {
+      invariant(
+        Array.isArray(ordersTxInputs),
+        "Orders tx inputs is not an array"
+      );
+
+      const { usersWallets, allowedMinterWallet, cip68Wallet } = wallets;
+      const user1Wallet = usersWallets[0];
+
+      const orders = ordersTxInputs.map((orderTxInput, i) => ({
+        orderTxInput,
+        assetUtf8Name: `hal-${i + 101}`,
+        assetDatum: makeHalAssetDatum(`hal-${i + 101}`),
+      }));
+
+      const txBuilderResult = await mint({
+        address: allowedMinterWallet.address,
+        orders,
+        db,
+        blockfrostApiKey: "",
+      });
+      invariant(txBuilderResult.ok, "Mint Tx Building Failed");
+
+      const txBuilder = txBuilderResult.data;
+      const txResult = await mayFailTransaction(
+        txBuilder,
+        allowedMinterWallet.address,
+        await allowedMinterWallet.utxos
+      ).complete();
+      invariant(txResult.ok, "Mint Tx Complete Failed");
+      logMemAndCpu(txResult);
+
+      const { tx } = txResult.data;
+      tx.addSignatures(await allowedMinterWallet.signTx(tx));
+      const txId = await allowedMinterWallet.submitTx(tx);
+      emulator.tick(200);
+
+      // check minted values
+      const settingsResult = await fetchSettings(network);
+      invariant(settingsResult.ok, "Settings Fetch Failed");
+      const { settingsV1 } = settingsResult.data;
+      const user1Balance = await balanceOf(user1Wallet);
+      const cip68Balance = await balanceOf(cip68Wallet);
+
+      orders.map((order) => {
+        assert(
+          user1Balance.isGreaterOrEqual(
+            userAssetValue(settingsV1.policy_id, order.assetUtf8Name)
+          ) == true,
+          "User 1 Wallet Balance is not correct"
+        );
+        assert(
+          cip68Balance.isGreaterOrEqual(
+            referenceAssetValue(settingsV1.policy_id, order.assetUtf8Name)
+          ) == true,
+          "CIP68 Wallet Balance is not correct"
+        );
+      });
+
+      // update minting data input
+      const mintingDataAssetTxInput = await emulator.getUtxo(
+        makeTxOutputId(txId, 0)
+      );
+      const mintingData = decodeMintingDataDatum(mintingDataAssetTxInput.datum);
+      mockedFunctions.mockedFetchMintingData.mockReturnValue(
+        new Promise((resolve) =>
+          resolve(
+            Ok({
+              mintingData,
+              mintingDataAssetTxInput,
+            })
+          )
+        )
+      );
+
+      // empty orders detail
+      ordersTxInputs.length = 0;
+
+      // inspect db
+      inspect(db);
+    }
+  );
 });

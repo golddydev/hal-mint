@@ -83,25 +83,20 @@ const userAssetValue = (policyId: string, handleName: string) => {
   );
 };
 
-const getRandomString = (min: number, max: number): string => {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-";
-  const length = Math.floor(Math.random() * (max - min + 1)) + min;
-  let result = "";
-
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-
-  return result;
-};
-
 const writeSuccessfulTxJson = async (
   txResult: Result<TxSuccessResult, Error | BuildTxError>
 ) => {
   invariant(txResult.ok);
   await fs.writeFile(
     "successful-tx.json",
-    JSON.stringify(txResult.data.dump, null, 2)
+    JSON.stringify(
+      {
+        txJson: txResult.data.dump,
+        txCbor: bytesToHex(txResult.data.tx.toCbor()),
+      },
+      null,
+      2
+    )
   );
 };
 
@@ -109,9 +104,17 @@ const writeFailedTxJson = async (
   txResult: Result<TxSuccessResult, Error | BuildTxError>
 ) => {
   invariant(!txResult.ok);
+  const error = txResult.error as BuildTxError;
   await fs.writeFile(
     "failed-tx.json",
-    JSON.stringify((txResult.error as BuildTxError).failedTxJson, null, 2)
+    JSON.stringify(
+      {
+        failedTxJson: error.failedTxJson,
+        failedTxCbor: error.failedTxCbor,
+      },
+      null,
+      2
+    )
   );
 };
 
@@ -136,7 +139,7 @@ const logMemAndCpu = async (
       `mem: ${mem} (${((mem / maxMem) * 100).toFixed(3)} %), cpu: ${cpu} (${(
         (cpu / maxCpu) *
         100
-      ).toFixed(3)} %)`
+      ).toFixed(3)} %), tx size: ${txResult.data.tx.toCbor().length} bytes`
     )
   );
 };
@@ -152,7 +155,6 @@ export {
   alwaysSucceedMintUplcProgram,
   balanceOf,
   extractScriptCborsFromUplcProgram,
-  getRandomString,
   logMemAndCpu,
   makeHalAssetDatum,
   referenceAssetClass,
