@@ -3,7 +3,6 @@ import { BlockFrostAPI } from "@blockfrost/blockfrost-js";
 import { bytesToHex } from "@helios-lang/codec-utils";
 import { makeAddress } from "@helios-lang/ledger";
 import { NetworkName } from "@helios-lang/tx-utils";
-import { ScriptType } from "@koralabs/kora-labs-common";
 import fs from "fs/promises";
 import prompts from "prompts";
 
@@ -19,26 +18,16 @@ import {
   buildSettingsV1Data,
   checkAccountRegistrationStatus,
   deploy,
-  fetchDeployedScript,
-  fetchOrdersTxInputs,
   getBlockfrostV0Client,
-  invariant,
-  mayFailTransaction,
-  //mint,
   MintingData,
-  mintNewHandles,
   registerStakingAddress,
-  request,
   Settings,
   SettingsV1,
-  TxSuccessResult,
 } from "../../src/index.js";
 import { GET_CONFIGS } from "../configs/index.js";
 import { CommandImpl } from "./types.js";
 
 const doOnChainActions = async (commandImpl: CommandImpl) => {
-  const blockfrostV0Client = getBlockfrostV0Client(BLOCKFROST_API_KEY);
-
   let finished: boolean = false;
   while (!finished) {
     const onChainAction = await prompts({
@@ -124,101 +113,6 @@ const doOnChainActions = async (commandImpl: CommandImpl) => {
           disabled: !commandImpl.mpt,
         },
         {
-          title: "request",
-          description:
-            "Request a new ADA handle by placing an order transaction on chain",
-          value: async () => {
-            const { handle, address } = await prompts([
-              {
-                name: "handle",
-                type: "text",
-                message: "The handle you want to request",
-              },
-              {
-                name: "address",
-                type: "text",
-                message: "User Address to request an order",
-              },
-            ]);
-
-            const txBuilderResult = await request({
-              network: NETWORK as NetworkName,
-              handle,
-              address: makeAddress(address),
-            });
-            if (txBuilderResult.ok) {
-              const txResult = await mayFailTransaction(
-                txBuilderResult.data,
-                address,
-                await blockfrostV0Client.getUtxos(address)
-              ).complete();
-              if (txResult.ok) {
-                await handleTxResult(txResult.data);
-              } else {
-                console.error("\nFailed to make Transaction\n");
-                console.error(txResult.error);
-                console.error("\n");
-              }
-            } else {
-              console.error("\nFailed to build Transaction\n");
-              console.error(txBuilderResult.error);
-              console.error("\n");
-            }
-          },
-          disabled: !commandImpl.mpt,
-        },
-        {
-          title: "mint",
-          description: "Mint all new handles with a transaction on-chain",
-          value: async () => {
-            const ordersScriptDetail = await fetchDeployedScript(
-              ScriptType.DEMI_ORDERS
-            );
-            const ordersTxInputsResult = await fetchOrdersTxInputs({
-              network: NETWORK as NetworkName,
-              ordersScriptDetail,
-              blockfrostApiKey: BLOCKFROST_API_KEY,
-            });
-            invariant(ordersTxInputsResult.ok, "Failed to fetch orders");
-            const { address } = await prompts({
-              name: "address",
-              type: "text",
-              message: "Address to perform minting all ordered handles",
-            });
-            const txBuilderResult = await mintNewHandles({
-              address: makeAddress(address),
-              latestHandlePrices: {
-                basic: 10,
-                common: 50,
-                rare: 100,
-                ultraRare: 500,
-              },
-              ordersTxInputs: ordersTxInputsResult.data,
-              db: commandImpl.mpt!,
-              blockfrostApiKey: BLOCKFROST_API_KEY,
-            });
-            if (txBuilderResult.ok) {
-              const txResult = await mayFailTransaction(
-                txBuilderResult.data,
-                address,
-                await blockfrostV0Client.getUtxos(address)
-              ).complete();
-              if (txResult.ok) {
-                await handleTxResult(txResult.data);
-              } else {
-                console.error("\nFailed to make Transaction\n");
-                console.error(txResult.error);
-                console.error("\n");
-              }
-            } else {
-              console.error("\nFailed to build Transaction\n");
-              console.error(txBuilderResult.error);
-              console.error("\n");
-            }
-          },
-          disabled: !commandImpl.mpt,
-        },
-        {
           title: "back",
           description: "Back to main actions",
           value: () => {
@@ -235,36 +129,35 @@ const buildSettingsDataCbor = () => {
   const configs = GET_CONFIGS(NETWORK as NetworkName);
   const {
     MINT_VERSION,
-    LEGACY_POLICY_ID,
     ADMIN_VERIFICATION_KEY_HASH,
-    ALLOWED_MINTERS,
-    TREASURY_ADDRESS,
-    PZ_SCRIPT_ADDRESS,
-    TREASURY_FEE_PERCENTAGE,
-    HANDLE_PRICES_ASSETS,
+    ALLOWED_MINTER,
+    HAL_NFT_PRICE,
+    PAYMENT_ADDRESS,
+    CIP68_SCRIPT_ADDRESS,
   } = configs;
 
   const contractsConfig = buildContracts({
     network: NETWORK as NetworkName,
     mint_version: MINT_VERSION,
-    legacy_policy_id: LEGACY_POLICY_ID,
     admin_verification_key_hash: ADMIN_VERIFICATION_KEY_HASH,
   });
   const {
+    halPolicyHash,
     mintV1: mintV1Config,
-    orders: ordersConfig,
     mintingData: mintingDataConfig,
+    ordersMint: ordersMintConfig,
+    ordersSpend: ordersSpendConfig,
   } = contractsConfig;
 
   // we already have settings asset using legacy handle.
   const settingsV1: SettingsV1 = {
-    policy_id: contractsConfig.handlePolicyHash.toHex(),
-    allowed_minters: ALLOWED_MINTERS,
-    valid_handle_price_assets: HANDLE_PRICES_ASSETS,
-    treasury_address: TREASURY_ADDRESS,
-    treasury_fee_percentage: TREASURY_FEE_PERCENTAGE,
-    pz_script_address: PZ_SCRIPT_ADDRESS,
-    order_script_hash: ordersConfig.ordersValidatorHash.toHex(),
+    policy_id: halPolicyHash.toHex(),
+    allowed_minter: ALLOWED_MINTER,
+    hal_nft_price: HAL_NFT_PRICE,
+    payment_address: PAYMENT_ADDRESS,
+    cip68_script_address: CIP68_SCRIPT_ADDRESS,
+    orders_spend_script_address: ordersSpendConfig.ordersSpendValidatorAddress,
+    orders_mint_policy_id: ordersMintConfig.ordersMintPolicyHash.toHex(),
     minting_data_script_hash:
       mintingDataConfig.mintingDataValidatorHash.toHex(),
   };
@@ -279,13 +172,11 @@ const buildSettingsDataCbor = () => {
 
 const buildMintingDataCbor = (db: Trie) => {
   const configs = GET_CONFIGS(NETWORK as NetworkName);
-  const { MINT_VERSION, LEGACY_POLICY_ID, ADMIN_VERIFICATION_KEY_HASH } =
-    configs;
+  const { MINT_VERSION, ADMIN_VERIFICATION_KEY_HASH } = configs;
 
   const contractsConfig = buildContracts({
     network: NETWORK as NetworkName,
     mint_version: MINT_VERSION,
-    legacy_policy_id: LEGACY_POLICY_ID,
     admin_verification_key_hash: ADMIN_VERIFICATION_KEY_HASH,
   });
   const { mintingData: mintingDataConfig } = contractsConfig;
@@ -303,13 +194,11 @@ const buildMintingDataCbor = (db: Trie) => {
 
 const getStakingAddresses = () => {
   const configs = GET_CONFIGS(NETWORK as NetworkName);
-  const { MINT_VERSION, LEGACY_POLICY_ID, ADMIN_VERIFICATION_KEY_HASH } =
-    configs;
+  const { MINT_VERSION, ADMIN_VERIFICATION_KEY_HASH } = configs;
 
   const contractsConfig = buildContracts({
     network: NETWORK as NetworkName,
     mint_version: MINT_VERSION,
-    legacy_policy_id: LEGACY_POLICY_ID,
     admin_verification_key_hash: ADMIN_VERIFICATION_KEY_HASH,
   });
   const { mintV1: mintV1Config } = contractsConfig;
@@ -321,8 +210,7 @@ const getStakingAddresses = () => {
 
 const doDeployActions = async () => {
   const configs = GET_CONFIGS(NETWORK as NetworkName);
-  const { MINT_VERSION, LEGACY_POLICY_ID, ADMIN_VERIFICATION_KEY_HASH } =
-    configs;
+  const { MINT_VERSION, ADMIN_VERIFICATION_KEY_HASH } = configs;
 
   let finished: boolean = false;
   while (!finished) {
@@ -337,10 +225,9 @@ const doDeployActions = async () => {
           value: async () => {
             const deployData = await deploy({
               network: NETWORK as NetworkName,
-              contractName: contract,
               mintVersion: MINT_VERSION,
-              legacyPolicyId: LEGACY_POLICY_ID,
               adminVerificationKeyHash: ADMIN_VERIFICATION_KEY_HASH,
+              contractName: contract,
             });
 
             const { filepath } = await prompts({
@@ -384,21 +271,6 @@ const doDeployActions = async () => {
     });
     await deployAction.action();
   }
-};
-
-const handleTxResult = async (txResult: TxSuccessResult) => {
-  const { filepath } = await prompts({
-    name: "filepath",
-    type: "text",
-    message: "File Path to save Tx CBOR and dump",
-  });
-  await fs.writeFile(
-    filepath,
-    JSON.stringify({
-      cbor: bytesToHex(txResult.tx.toCbor()),
-      dump: txResult.dump,
-    })
-  );
 };
 
 const handleTxCbor = async (txCbor: string) => {

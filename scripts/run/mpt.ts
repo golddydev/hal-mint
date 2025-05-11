@@ -3,13 +3,13 @@ import cliProgress from "cli-progress";
 import prompts from "prompts";
 
 import {
-  addHandle,
+  addAsset,
   clear,
-  fillHandles,
+  fillAssets,
   init,
   inspect,
   printProof,
-  removeHandle,
+  removeAsset,
 } from "../../src/index.js";
 import { getAllHandles } from "../handles.js";
 import { CommandImpl } from "./types.js";
@@ -53,7 +53,7 @@ const doMPTActions = async (commandImpl: CommandImpl) => {
                 message: "The value to store at this key",
               },
             ]);
-            await addHandle(commandImpl.mpt!, key, value);
+            await addAsset(commandImpl.mpt!, key, value);
           },
           disabled: !commandImpl.mpt,
         },
@@ -66,7 +66,7 @@ const doMPTActions = async (commandImpl: CommandImpl) => {
               type: "text",
               message: "The key to remove",
             });
-            await removeHandle(commandImpl.mpt!, key);
+            await removeAsset(commandImpl.mpt!, key);
           },
           disabled: !commandImpl.mpt,
         },
@@ -120,7 +120,7 @@ const doMPTActions = async (commandImpl: CommandImpl) => {
                 etaBuffer: 50,
               });
               progress.start(handles.length, 0);
-              await fillHandles(commandImpl.mpt!, handles, () =>
+              await fillAssets(commandImpl.mpt!, handles, () =>
                 progress.increment()
               );
               progress.stop();
