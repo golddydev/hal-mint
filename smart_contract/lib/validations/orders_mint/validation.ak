@@ -51,7 +51,7 @@ pub fn can_mint_orders(
 // minting_data script will check
 // correct amount of order NFTs are burnt
 //
-pub fn can_burn_orders(
+pub fn can_execute_orders(
   transaction: Transaction,
   hal_policy_id: PolicyId,
 ) -> Bool {
