@@ -49,8 +49,7 @@ pub fn are_all_orders_minted(
             |> value.add(own_policy_id, order_asset_name, 1)
         )
       let has_enough_lovelace = value.lovelace_of(output_value) >= hal_nft_price
-      expect has_order_token
-      expect has_enough_lovelace
+      expect has_order_token && has_enough_lovelace
 
       // check output reference script is none
       expect output_reference_script == None

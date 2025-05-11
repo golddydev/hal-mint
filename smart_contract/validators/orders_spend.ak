@@ -12,6 +12,10 @@ type OrderSpendRedeemer {
 // Where Order Tx Input is sent
 // with Order NFT (orders_mint)
 //
+// ===== Parameters =====
+// `hal_policy_id`: Policy id of HAL NFT
+// `order_mint_policy_id`: Policy id of Order NFT
+//
 validator(hal_policy_id: PolicyId, order_mint_policy_id: PolicyId) {
   fn spend(
     datum: OrderDatum,

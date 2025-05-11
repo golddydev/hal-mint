@@ -7,6 +7,11 @@ use hal_nft_mint/settings.{Settings, find_settings}
 use hal_nft_mint/settings_v1.{SettingsV1}
 use validations/orders_mint/utils.{are_all_orders_minted}
 
+// Check UTxO is sent to orders spend script address
+// with correct amount of lovelace and one order Token
+// attached with correct datum 
+// (destination address, price, owner key hash)
+//
 pub fn can_mint_orders(
   destination_addresses: List<Address>,
   own_policy_id: PolicyId,
@@ -37,12 +42,15 @@ pub fn can_mint_orders(
       value.zero(),
     )
 
-  // check mint value is correct
   expect value.from_minted_value(mint) == expected_mint_value
 
   True
 }
 
+// Check HAL NFT is minted
+// minting_data script will check
+// correct amount of order NFTs are burnt
+//
 pub fn can_burn_orders(
   transaction: Transaction,
   hal_policy_id: PolicyId,
@@ -56,6 +64,8 @@ pub fn can_burn_orders(
   True
 }
 
+// Check only one Order NFT is burnt
+//
 pub fn can_cancel_order(policy_id: PolicyId, transaction: Transaction) -> Bool {
   let Transaction { mint, .. } = transaction
 

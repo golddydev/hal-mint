@@ -11,6 +11,13 @@ type OrderMintRedeemer {
   CancelOrder
 }
 
+// This is Minting Policy for Order NFTs
+// Order NFTs are used to check UTxO in Orders Spend validator
+// are valid
+//
+// ===== Parameters =====
+// `hal_policy_id`: Policy id of HAL NFT
+//
 validator(hal_policy_id: PolicyId) {
   fn mint(redeemer: OrderMintRedeemer, ctx: ScriptContext) -> Bool {
     let ScriptContext { transaction, purpose } = ctx

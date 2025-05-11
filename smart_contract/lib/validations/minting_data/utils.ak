@@ -54,7 +54,7 @@ pub fn all_orders_are_satisfied(
           // check minted assets are correctly sent to correct address
           // and new_mint_value and ref output's datum hash (to update mpt)
           expect [ref_output, user_output, ..rest_outputs] = outputs
-          let (new_mint_value, ref_output_datum_hash) =
+          let (new_expected_mint_value, ref_output_datum_hash) =
             check_ref_and_user_outputs(
               ref_output,
               user_output,
@@ -63,12 +63,8 @@ pub fn all_orders_are_satisfied(
               cip68_script_address,
               destination_address,
               expected_mint_value,
+              order_mint_policy_id,
             )
-
-          // burn order token
-          let new_expected_mint_value =
-            new_mint_value
-              |> value.add(order_mint_policy_id, order_asset_name, -1)
 
           // update root
           // this function also checks asset name is in trie
@@ -138,6 +134,7 @@ fn check_ref_and_user_outputs(
   cip68_script_address: Address,
   destination_address: Address,
   mint_value: Value,
+  order_mint_policy_id: PolicyId,
 ) -> (Value, DatumHash) {
   // make ref asset name and user asset name from asset_name
   let ref_asset_name = bytearray.concat(prefix_100, asset_name)
@@ -169,10 +166,12 @@ fn check_ref_and_user_outputs(
   expect does_user_output_value_have_asset
 
   // update mint value
+  // and burn order token
   let new_mint_value =
     mint_value
       |> value.add(policy_id, ref_asset_name, 1)
       |> value.add(policy_id, user_asset_name, 1)
+      |> value.add(order_mint_policy_id, order_asset_name, -1)
 
   (new_mint_value, ref_output_datum_hash)
 }

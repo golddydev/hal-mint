@@ -18,6 +18,7 @@ use validations/minting_data/utils.{all_orders_are_satisfied}
 // - signed by allowed_minter
 // - all orders are satisfied correctly
 // and minted values are sent to correct addresses
+// and order NFTs are burnt correctly
 // - Proofs are valid (NOTE: must be in same order as orders UTxOs)
 //
 pub fn can_mint(
@@ -111,6 +112,9 @@ pub fn can_mint(
   True
 }
 
+// Check transaction is signed by admin
+// and No Token is minted
+//
 pub fn can_update_mpt(
   transaction: Transaction,
   admin_verification_key_hash: VerificationKeyHash,
@@ -120,7 +124,7 @@ pub fn can_update_mpt(
   // must not mint anything
   expect value.from_minted_value(mint) == value.zero()
 
-  // must be signed by god
+  // must be signed by admin
   expect list.has(extra_signatories, admin_verification_key_hash)
 
   True
