@@ -36,10 +36,7 @@ import {
   Settings,
   SettingsV1,
 } from "../src/index.js";
-import {
-  alwaysSucceedMintUplcProgram,
-  extractScriptCborsFromUplcProgram,
-} from "./utils.js";
+import { extractScriptCborsFromUplcProgram } from "./utils.js";
 
 const network: NetworkName = "preprod";
 const isMainnet = false;
@@ -100,11 +97,8 @@ const deployScript = async (
 const setup = async () => {
   const emulator = makeEmulator();
 
-  // legacy handles policy id
-  const legacyMintUplcProgram = alwaysSucceedMintUplcProgram();
-  // policy id: f060f0ef7fa4c3c6d3a4f831c639038db0f625c548a711f2b276a282
   const legacyPolicyId = makeMintingPolicyHash(
-    legacyMintUplcProgram.hash()
+    "f060f0ef7fa4c3c6d3a4f831c639038db0f625c548a711f2b276a282"
   ).toHex();
 
   // ============ prepare wallets ============
@@ -186,7 +180,8 @@ const setup = async () => {
   // prepare db
   // insert 10,000 hal assets names
   // with empty string value
-  const assetNames = Array.from({ length: 100 }, (_, i) => `hal-${i + 1}`);
+  console.log("======= Starting Pre Filling DB =======\n");
+  const assetNames = Array.from({ length: 10000 }, (_, i) => `hal-${i + 1}`);
   await fillAssets(db, assetNames, () => {});
   console.log("======= DB Pre Filled =======\n");
   console.log("DB Root Hash:\n", db.hash?.toString("hex"));

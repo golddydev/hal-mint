@@ -15,6 +15,7 @@ import { makeTxBuilder, NetworkName, TxBuilder } from "@helios-lang/tx-utils";
 import { ScriptDetails } from "@koralabs/kora-labs-common";
 import { Err, Ok, Result } from "ts-res";
 
+import { fetchSettings } from "../configs/index.js";
 import { HAL_NFT_PRICE, ORDER_ASSET_HEX_NAME } from "../constants/index.js";
 import {
   buildOrderData,
@@ -66,6 +67,12 @@ const request = async (
     ordersSpendScriptDetails,
   } = deployedScripts;
 
+  // fetch settings
+  const settingsResult = await fetchSettings(network);
+  if (!settingsResult.ok)
+    return Err(new Error(`Failed to fetch settings: ${settingsResult.error}`));
+  const { settingsAssetTxInput } = settingsResult.data;
+
   // orders spend script address
   const ordersSpendScriptAddress = makeAddress(
     isMainnet,
@@ -100,6 +107,9 @@ const request = async (
   const txBuilder = makeTxBuilder({
     isMainnet,
   });
+
+  // <-- attach settings asset as reference input
+  txBuilder.refer(settingsAssetTxInput);
 
   // <-- attach orders mint script
   txBuilder.refer(ordersMintScriptTxInput);

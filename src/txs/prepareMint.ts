@@ -113,7 +113,7 @@ const prepareMintTransaction = async (
       const mpfProof = await db.prove(utf8Name);
       const datumHash = getDatumHash(assetDatum);
       await db.delete(utf8Name);
-      await db.insert(utf8Name, datumHash);
+      await db.insert(utf8Name, Buffer.from(datumHash, "hex"));
       proofs.push({
         mpt_proof: parseMPTProofJSON(mpfProof.toJSON()),
         asset_name: hexName,
