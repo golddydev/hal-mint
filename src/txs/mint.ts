@@ -5,50 +5,50 @@ import {
   makeAssetClass,
   makeAssets,
   makeMintingPolicyHash,
+  makeValidatorHash,
   makeValue,
-  TxInput,
 } from "@helios-lang/ledger";
 import { TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
-import { PREFIX_100, PREFIX_222 } from "../constants/index.js";
 import {
-  buildOrderExecuteRedeemer,
+  ORDER_ASSET_NAME,
+  PREFIX_100,
+  PREFIX_222,
+} from "../constants/index.js";
+import {
+  buildOrdersMintExecuteOrdersRedeemer,
+  buildOrdersSpendExecuteOrdersRedeemer,
   decodeOrderDatum,
-  HandlePrices,
   makeVoidData,
-  NewHandle,
 } from "../contracts/index.js";
-import { getNetwork, invariant } from "../helpers/index.js";
-import { calculateHandlePriceFromHandlePriceInfo } from "../utils/index.js";
-import { prepareNewMintTransaction } from "./prepareNewMint.js";
+import { getNetwork } from "../helpers/index.js";
+import { isValidOrderTxInput } from "./order.js";
+import { prepareMintTransaction } from "./prepareMint.js";
+import { Order, OrderedAsset } from "./types.js";
 
 /**
  * @interface
- * @typedef {object} MintNewHandlesParams
+ * @typedef {object} MintParams
  * @property {Address} address Wallet Address to perform mint
- * @property {HandlePrices} latestHandlePrices Latest Handle Prices to update while minting
- * @property {TxInput[]} ordersTxInputs Orders UTxOs
+ * @property {Order[]} orders Order Tx Inputs and asset names to mint
  * @property {Trie} db Trie DB
  * @property {string} blockfrostApiKey Blockfrost API Key
  */
-interface MintNewHandlesParams {
+interface MintParams {
   address: Address;
-  latestHandlePrices: HandlePrices;
-  ordersTxInputs: TxInput[];
+  orders: Order[];
   db: Trie;
   blockfrostApiKey: string;
 }
 
 /**
  * @description Mint Handles from Order (only new handles)
- * @param {MintNewHandlesParams} params
+ * @param {MintParams} params
  * @returns {Promise<Result<TxBuilder,  Error>>} Transaction Result
  */
-const mintNewHandles = async (
-  params: MintNewHandlesParams
-): Promise<Result<TxBuilder, Error>> => {
-  const { ordersTxInputs, blockfrostApiKey } = params;
+const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
+  const { orders, blockfrostApiKey } = params;
   const network = getNetwork(blockfrostApiKey);
 
   // refactor Orders Tx Inputs
@@ -56,26 +56,28 @@ const mintNewHandles = async (
   // sort orderUtxos before process
   // because tx inputs is sorted lexicographically
   // we have to insert handle in same order as tx inputs
-  ordersTxInputs.sort((a, b) => (a.id.toString() > b.id.toString() ? 1 : -1));
-  if (ordersTxInputs.length == 0) return Err(new Error("No Order requested"));
-  console.log(`${ordersTxInputs.length} Handles are ordered`);
+  orders.sort((a, b) =>
+    a.orderTxInput.id.toString() > b.orderTxInput.id.toString() ? 1 : -1
+  );
+  if (orders.length == 0) return Err(new Error("No Order requested"));
+  console.log(`${orders.length} Orders are picked`);
 
-  const orderedHandles: NewHandle[] = ordersTxInputs.map((order) => {
-    const decodedOrder = decodeOrderDatum(order.datum, network);
+  const orderedAssets: OrderedAsset[] = orders.map((order) => {
+    const { orderTxInput, assetUtf8Name, assetDatum } = order;
+    const decodedOrder = decodeOrderDatum(orderTxInput.datum, network);
+    const { destination_address, price } = decodedOrder;
     return {
-      utf8Name: Buffer.from(decodedOrder.requested_handle, "hex").toString(
-        "utf8"
-      ),
-      hexName: decodedOrder.requested_handle,
-      destinationAddress: decodedOrder.destination_address,
-      treasuryFee: order.value.lovelace,
-      minterFee: order.value.lovelace,
+      utf8Name: assetUtf8Name,
+      hexName: Buffer.from(assetUtf8Name, "utf8").toString("hex"),
+      destinationAddress: destination_address,
+      price,
+      assetDatum,
     };
   });
 
-  const preparedTxBuilderResult = await prepareNewMintTransaction({
+  const preparedTxBuilderResult = await prepareMintTransaction({
     ...params,
-    handles: orderedHandles,
+    orderedAssets,
   });
 
   if (!preparedTxBuilderResult.ok) {
@@ -85,36 +87,44 @@ const mintNewHandles = async (
       )
     );
   }
-  const { txBuilder, deployedScripts, settingsV1, handlePriceInfo } =
+  const { txBuilder, deployedScripts, settingsV1 } =
     preparedTxBuilderResult.data;
-  const { mintProxyScriptDetails } = deployedScripts;
-  const newPolicyHash = makeMintingPolicyHash(
+  const {
+    mintProxyScriptDetails,
+    ordersSpendScriptDetails,
+    ordersMintScriptDetails,
+  } = deployedScripts;
+  const halPolicyHash = makeMintingPolicyHash(
     mintProxyScriptDetails.validatorHash
   );
 
   const mintingHandlesData = [];
-  for (const orderTxInput of ordersTxInputs) {
+  for (const order of orders) {
+    const { orderTxInput, assetUtf8Name, assetDatum } = order;
     const decodedOrder = decodeOrderDatum(orderTxInput.datum, network);
-    const { destination_address, requested_handle } = decodedOrder;
-    const utf8Name = Buffer.from(requested_handle, "hex").toString("utf8");
+    const { destination_address } = decodedOrder;
+    const assetHexName = Buffer.from(assetUtf8Name, "utf8").toString("hex");
 
     const refHandleAssetClass = makeAssetClass(
-      newPolicyHash,
-      `${PREFIX_100}${requested_handle}`
+      halPolicyHash,
+      `${PREFIX_100}${assetHexName}`
     );
     const userHandleAssetClass = makeAssetClass(
-      newPolicyHash,
-      `${PREFIX_222}${requested_handle}`
+      halPolicyHash,
+      `${PREFIX_222}${assetHexName}`
     );
 
-    const lovelace = orderTxInput.value.lovelace;
-    const handlePrice = calculateHandlePriceFromHandlePriceInfo(
-      utf8Name,
-      handlePriceInfo
-    );
-
-    // check order input lovelace is bigger than handle price
-    invariant(lovelace >= handlePrice, "Order Input lovelace insufficient");
+    // check is order input is valid
+    const isValidOrderInput = isValidOrderTxInput({
+      network,
+      orderTxInput,
+      ordersSpendScriptDetails,
+    });
+    if (!isValidOrderInput.ok) {
+      return Err(
+        new Error(`Order Input is invalid: ${isValidOrderInput.error}`)
+      );
+    }
 
     const refHandleValue = makeValue(
       1n,
@@ -129,6 +139,7 @@ const mintNewHandles = async (
     mintingHandlesData.push({
       orderTxInput,
       destinationAddress,
+      assetDatum,
       refHandleValue,
       userHandleValue,
       refHandleAssetClass,
@@ -136,39 +147,73 @@ const mintNewHandles = async (
     });
   }
 
-  // <-- spend order utxos and mint handle
-  // and send minted handle to destination with datum
-  const mintingHandlesTokensValue: [ByteArrayLike, IntLike][] = [];
+  // continue transaction building
+  // from prepareMintTransaction
+
+  // prepare hal nfts token value
+  const halTokenValue: [ByteArrayLike, IntLike][] = [];
   mintingHandlesData.forEach((mintingHandle) => {
     const { refHandleAssetClass, userHandleAssetClass } = mintingHandle;
-    mintingHandlesTokensValue.push(
+    halTokenValue.push(
       [refHandleAssetClass.tokenName, 1n],
       [userHandleAssetClass.tokenName, 1n]
     );
   });
+
+  // prepare order nfts token value
+  const ordersMintPolicyHash = makeMintingPolicyHash(
+    makeValidatorHash(ordersMintScriptDetails.validatorHash)
+  );
+  const orderTokenAssetClass = makeAssetClass(
+    ordersMintPolicyHash,
+    ORDER_ASSET_NAME
+  );
+  // burn orders NFT same amount as orders length
+  const orderTokenValue: [ByteArrayLike, IntLike][] = [
+    [orderTokenAssetClass.tokenName, BigInt(-orders.length)],
+  ];
+
+  // build redeemer for orders_mint `ExecuteOrders`
+  const ordersMintExecuteOrdersRedeemer =
+    buildOrdersMintExecuteOrdersRedeemer();
+
+  // build redeemer for orders_spend `ExecuteOrders`
+  const ordersSpendExecuteOrdersRedeemer =
+    buildOrdersSpendExecuteOrdersRedeemer();
+
+  // <-- mint hal nfts
   txBuilder.mintPolicyTokensUnsafe(
-    newPolicyHash,
-    mintingHandlesTokensValue,
+    halPolicyHash,
+    halTokenValue,
     makeVoidData()
   );
+
+  // <-- burn order nfts
+  txBuilder.mintPolicyTokensUnsafe(
+    ordersMintPolicyHash,
+    orderTokenValue,
+    ordersMintExecuteOrdersRedeemer
+  );
+
+  // <-- spend order utxos and mint handle
+  // and send minted handle to destination with datum
   for (const mintingHandle of mintingHandlesData) {
     const {
       orderTxInput,
       refHandleValue,
       userHandleValue,
       destinationAddress,
+      assetDatum,
     } = mintingHandle;
 
     txBuilder
-      .spendUnsafe(orderTxInput, buildOrderExecuteRedeemer())
-      // TODO:
-      // Add Personalization Datum
-      .payUnsafe(settingsV1.pz_script_address, refHandleValue)
+      .spendUnsafe(orderTxInput, ordersSpendExecuteOrdersRedeemer)
+      .payUnsafe(settingsV1.cip68_script_address, refHandleValue, assetDatum)
       .payUnsafe(destinationAddress, userHandleValue);
   }
 
   return Ok(txBuilder);
 };
 
-export type { MintNewHandlesParams };
-export { mintNewHandles };
+export type { MintParams };
+export { mint };

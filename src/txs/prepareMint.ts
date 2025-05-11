@@ -10,55 +10,44 @@ import {
 import { makeTxBuilder, TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
+import { fetchMintingData, fetchSettings } from "../configs/index.js";
 import {
-  fetchHandlePriceInfoData,
-  fetchMintingData,
-  fetchSettings,
-} from "../configs/index.js";
-import { HANDLE_PRICE_INFO_HANDLE_NAME } from "../constants/index.js";
-import {
-  buildHandlePriceInfoData,
   buildMintingData,
-  buildMintingDataMintNewHandlesRedeemer,
+  buildMintingDataMintRedeemer,
   buildMintV1MintHandlesRedeemer,
-  convertHandlePricesToHandlePriceData,
-  HandlePriceInfo,
-  HandlePrices,
   makeVoidData,
   MintingData,
-  MPTProof,
-  NewHandle,
   parseMPTProofJSON,
+  Proof,
   Settings,
   SettingsV1,
 } from "../contracts/index.js";
 import { getBlockfrostV0Client, getNetwork } from "../helpers/index.js";
 import { DeployedScripts, fetchAllDeployedScripts } from "./deploy.js";
+import { OrderedAsset } from "./types.js";
 
 /**
  * @interface
- * @typedef {object} PrepareNewMintParams
+ * @typedef {object} PrepareMintParams
  * @property {Address} address Wallet Address to perform mint
- * @property {HandlePrices} latestHandlePrices Latest Handle Prices to update while minting
- * @property {NewHandle[]} handles New Handles to mint
+ * @property {OrderedAsset[]} orderedAssets Ordered Assets Information
  * @property {Trie} db Trie DB
  * @property {string} blockfrostApiKey Blockfrost API Key
  */
-interface PrepareNewMintParams {
+interface PrepareMintParams {
   address: Address;
-  latestHandlePrices: HandlePrices;
-  handles: NewHandle[];
+  orderedAssets: OrderedAsset[];
   db: Trie;
   blockfrostApiKey: string;
 }
 
 /**
  * @description Mint New Handles from Order
- * @param {PrepareNewMintParams} params
+ * @param {PrepareMintParams} params
  * @returns {Promise<Result<TxBuilder,  Error>>} Transaction Result
  */
-const prepareNewMintTransaction = async (
-  params: PrepareNewMintParams
+const prepareMintTransaction = async (
+  params: PrepareMintParams
 ): Promise<
   Result<
     {
@@ -66,12 +55,11 @@ const prepareNewMintTransaction = async (
       deployedScripts: DeployedScripts;
       settings: Settings;
       settingsV1: SettingsV1;
-      handlePriceInfo: HandlePriceInfo;
     },
     Error
   >
 > => {
-  const { address, handles, db, blockfrostApiKey, latestHandlePrices } = params;
+  const { address, orderedAssets, db, blockfrostApiKey } = params;
   const network = getNetwork(blockfrostApiKey);
   const isMainnet = network == "mainnet";
   if (address.era == "Byron")
@@ -87,7 +75,8 @@ const prepareNewMintTransaction = async (
     mintingDataScriptTxInput,
     mintV1ScriptDetails,
     mintV1ScriptTxInput,
-    ordersScriptTxInput,
+    ordersMintScriptTxInput,
+    ordersSpendScriptTxInput,
   } = fetchedResult.data;
 
   // fetch settings
@@ -95,7 +84,7 @@ const prepareNewMintTransaction = async (
   if (!settingsResult.ok)
     return Err(new Error(`Failed to fetch settings: ${settingsResult.error}`));
   const { settings, settingsV1, settingsAssetTxInput } = settingsResult.data;
-  const { allowed_minters, treasury_address } = settingsV1;
+  const { hal_nft_price, allowed_minter, payment_address } = settingsV1;
 
   const mintingDataResult = await fetchMintingData();
   if (!mintingDataResult.ok)
@@ -103,22 +92,6 @@ const prepareNewMintTransaction = async (
       new Error(`Failed to fetch minting data: ${mintingDataResult.error}`)
     );
   const { mintingData, mintingDataAssetTxInput } = mintingDataResult.data;
-
-  // NOTE:
-  // we assume valid handle price asset is
-  // "price@handle_settings" (koralab's)
-  const handlePriceInfoDataResult = await fetchHandlePriceInfoData(
-    HANDLE_PRICE_INFO_HANDLE_NAME
-  );
-  if (!handlePriceInfoDataResult.ok) {
-    return Err(
-      new Error(
-        `Failed to fetch handle price info: ${handlePriceInfoDataResult.error}`
-      )
-    );
-  }
-  const { handlePriceInfo, handlePriceInfoAssetTxInput } =
-    handlePriceInfoDataResult.data;
 
   // check if current db trie hash is same as minting data root hash
   if (
@@ -128,21 +101,20 @@ const prepareNewMintTransaction = async (
     return Err(new Error("ERROR: Local DB and On Chain Root Hash mismatch"));
   }
 
-  // calculate total handle price
-  const treasuryFee = handles.reduce((acc, cur) => acc + cur.treasuryFee, 0n);
-  const minterFee = handles.reduce((acc, cur) => acc + cur.minterFee, 0n);
-
   // make Proofs for Minting Data V1 Redeemer
-  const proofs: MPTProof[] = [];
-  for (const handle of handles) {
-    const { utf8Name } = handle;
+  const proofs: Proof[] = [];
+  for (const orderedAsset of orderedAssets) {
+    const { utf8Name, hexName } = orderedAsset;
 
     try {
       // NOTE:
       // Have to remove handles if transaction fails
       await db.insert(utf8Name, "");
       const mpfProof = await db.prove(utf8Name);
-      proofs.push(parseMPTProofJSON(mpfProof.toJSON()));
+      proofs.push({
+        mpt_proof: parseMPTProofJSON(mpfProof.toJSON()),
+        asset_name: hexName,
+      });
     } catch (e) {
       console.warn("Handle already exists", utf8Name, e);
       return Err(new Error(`Handle "${utf8Name}" already exists`));
@@ -161,21 +133,14 @@ const prepareNewMintTransaction = async (
     mintingDataAssetTxInput.value.assets
   );
 
-  // handle price info asset value
-  const handlePriceInfoValue = makeValue(
-    handlePriceInfoAssetTxInput.value.lovelace,
-    handlePriceInfoAssetTxInput.value.assets
-  );
-
-  // build redeemer for mint v1
+  // build redeemer for mint v1 `MintNFTs`
   const mintV1MintHandlesRedeemer = buildMintV1MintHandlesRedeemer();
 
-  // NOTE:
-  // we assume that koralab's minter index is 0
-  // meaning we always use Koralab minter
-  // build proofs redeemer for minting data v1
-  const mintingDataMintNewHandlesRedeemer =
-    buildMintingDataMintNewHandlesRedeemer(proofs, 0n);
+  // build redeemer for minting data `Mint(Proofs)`
+  const mintingDataMintRedeemer = buildMintingDataMintRedeemer(proofs);
+
+  // calculate total price
+  const totalPrice = hal_nft_price * BigInt(orderedAssets.length);
 
   // start building tx
   const txBuilder = makeTxBuilder({
@@ -183,7 +148,7 @@ const prepareNewMintTransaction = async (
   });
 
   // <-- add required signer
-  txBuilder.addSigners(makePubKeyHash(allowed_minters[0]));
+  txBuilder.addSigners(makePubKeyHash(allowed_minter));
 
   // <-- attach settings asset as reference input
   txBuilder.refer(settingsAssetTxInput);
@@ -193,36 +158,18 @@ const prepareNewMintTransaction = async (
     mintProxyScriptTxInput,
     mintV1ScriptTxInput,
     mintingDataScriptTxInput,
-    ordersScriptTxInput
+    ordersMintScriptTxInput,
+    ordersSpendScriptTxInput
   );
 
   // <-- spend minting data utxo
-  txBuilder.spendUnsafe(
-    mintingDataAssetTxInput,
-    mintingDataMintNewHandlesRedeemer
-  );
+  txBuilder.spendUnsafe(mintingDataAssetTxInput, mintingDataMintRedeemer);
 
   // <-- lock minting data value with new root hash
   txBuilder.payUnsafe(
     mintingDataAssetTxInput.address,
     mintingDataValue,
     makeInlineTxOutputDatum(buildMintingData(newMintingData))
-  );
-
-  // <-- spend handle price info utxo
-  txBuilder.spendUnsafe(handlePriceInfoAssetTxInput);
-
-  // <-- lock handle price info value with handle prices
-  const newHandlePriceInfo: HandlePriceInfo = {
-    current_data: convertHandlePricesToHandlePriceData(latestHandlePrices),
-    prev_data: handlePriceInfo.prev_data,
-    updated_at: BigInt(Date.now()),
-  };
-
-  txBuilder.payUnsafe(
-    handlePriceInfoAssetTxInput.address,
-    handlePriceInfoValue,
-    makeInlineTxOutputDatum(buildHandlePriceInfoData(newHandlePriceInfo))
   );
 
   // <-- withdraw from mint v1 withdraw validator (script from reference input)
@@ -235,32 +182,26 @@ const prepareNewMintTransaction = async (
     mintV1MintHandlesRedeemer
   );
 
-  // <-- pay treasury fee
+  // <-- pay hal nft price to payment address
   txBuilder.payUnsafe(
-    treasury_address,
-    makeValue(treasuryFee),
-    makeInlineTxOutputDatum(makeVoidData())
-  );
-
-  // <-- pay minter fee
-  txBuilder.payUnsafe(
-    address,
-    makeValue(minterFee),
+    payment_address,
+    makeValue(totalPrice),
     makeInlineTxOutputDatum(makeVoidData())
   );
 
   // NOTE:
   // After call this function
-  // using txBuilder (return value), they can continue with minting assets (e.g. ref and user asset)
+  // using txBuilder (returned value)
+  // they have to continue with minting assets (ref and user assets)
+  // and sending them to correct addresses (to cip68 script address and destination addresses)
 
   return Ok({
     txBuilder,
     deployedScripts: fetchedResult.data,
     settings,
     settingsV1,
-    handlePriceInfo,
   });
 };
 
-export type { PrepareNewMintParams };
-export { prepareNewMintTransaction };
+export type { PrepareMintParams };
+export { prepareMintTransaction };

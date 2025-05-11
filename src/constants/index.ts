@@ -21,19 +21,8 @@ export const PREFIX_100 = "000643b0";
 /// (222) Non-Fungible Token Prefix
 export const PREFIX_222 = "000de140";
 
-/// (333) Fungible Token Prefix
-export const PREFIX_333 = "0014df10";
-
-/// (444) Rich-Fungible Token Prefix
-export const PREFIX_444 = "001bc280";
-
-/// (000) Virtual Sub Handle Prefix
-export const PREFIX_000 = "00000000";
-
-/// (001) Root Handle Settings Prefix
-export const PREFIX_001 = "00001070";
-
-export const MIN_TREASURY_FEE = 2_000_000n;
+// H.A.L NFT price
+export const HAL_NFT_PRICE = 180_000_000n;
 
 // Contract names
 export const CONTRACT_NAMES = [

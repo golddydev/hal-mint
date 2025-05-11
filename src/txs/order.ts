@@ -1,48 +1,48 @@
+import { IntLike } from "@helios-lang/codec-utils";
+import { ByteArrayLike } from "@helios-lang/codec-utils";
 import {
   Address,
   makeAddress,
+  makeAssetClass,
+  makeAssets,
   makeInlineTxOutputDatum,
+  makeMintingPolicyHash,
   makeValidatorHash,
   makeValue,
   TxInput,
 } from "@helios-lang/ledger";
 import { makeTxBuilder, NetworkName, TxBuilder } from "@helios-lang/tx-utils";
-import { decodeUplcProgramV2FromCbor } from "@helios-lang/uplc";
-import { ScriptDetails, ScriptType } from "@koralabs/kora-labs-common";
+import { ScriptDetails } from "@koralabs/kora-labs-common";
 import { Err, Ok, Result } from "ts-res";
 
-import { fetchHandlePriceInfoData } from "../configs/index.js";
-import { HANDLE_PRICE_INFO_HANDLE_NAME } from "../constants/index.js";
+import { HAL_NFT_PRICE, ORDER_ASSET_NAME } from "../constants/index.js";
 import {
-  buildOrderCancelRedeemer,
   buildOrderData,
+  buildOrdersMintCancelOrderRedeemer,
+  buildOrdersMintMintOrdersRedeemer,
+  buildOrdersSpendCancelOrderRedeemer,
   decodeOrderDatum,
-  HandlePrices,
-  makeSignatureMultiSigScriptData,
   OrderDatum,
 } from "../contracts/index.js";
 import {
   getBlockfrostV0Client,
+  getNetwork,
   mayFail,
   mayFailAsync,
 } from "../helpers/index.js";
-import {
-  calculateHandlePriceFromHandlePriceInfo,
-  calculateHandlePriceFromHandlePrices,
-  fetchDeployedScript,
-} from "../utils/index.js";
+import { DeployedScripts } from "./deploy.js";
 
 /**
  * @interface
  * @typedef {object} RequestParams
  * @property {NetworkName} network Network
  * @property {Address} address User's Wallet Address to perform order
- * @property {string} handle Handle Name to order (UTF8 format)
+ * @property {DeployedScripts} deployedScripts Deployed Scripts
  */
 interface RequestParams {
   network: NetworkName;
   address: Address;
-  handle: string;
+  deployedScripts: DeployedScripts;
 }
 
 /**
@@ -53,62 +53,68 @@ interface RequestParams {
 const request = async (
   params: RequestParams
 ): Promise<Result<TxBuilder, Error>> => {
-  const { network, address, handle } = params;
-
-  // get handle price
-  const handlePriceInfoDataResult = await fetchHandlePriceInfoData(
-    HANDLE_PRICE_INFO_HANDLE_NAME
-  );
-  if (!handlePriceInfoDataResult.ok) {
-    return Err(
-      new Error(
-        `Failed to fetch handle price info: ${handlePriceInfoDataResult.error}`
-      )
-    );
-  }
-  const { handlePriceInfo } = handlePriceInfoDataResult.data;
-  const handlePrice = calculateHandlePriceFromHandlePriceInfo(
-    handle,
-    handlePriceInfo
-  );
-
+  const { network, address, deployedScripts } = params;
   const isMainnet = network == "mainnet";
   if (address.era == "Byron")
     return Err(new Error("Byron Address not supported"));
   if (address.spendingCredential.kind == "ValidatorHash")
     return Err(new Error("Must be Base address"));
 
-  // fetch orders script
-  const ordersScriptDetailsResult = await mayFailAsync(() =>
-    fetchDeployedScript(ScriptType.DEMI_ORDERS)
-  ).complete();
-  if (!ordersScriptDetailsResult.ok)
-    return Err(
-      new Error(
-        `Failed to fetch deployed orders script: ${ordersScriptDetailsResult.error}`
-      )
-    );
-  const ordersScriptDetails = ordersScriptDetailsResult.data;
-  const ordersScriptAddress = makeAddress(
+  const {
+    ordersMintScriptTxInput,
+    ordersMintScriptDetails,
+    ordersSpendScriptDetails,
+  } = deployedScripts;
+
+  // orders spend script address
+  const ordersSpendScriptAddress = makeAddress(
     isMainnet,
-    makeValidatorHash(ordersScriptDetails.validatorHash)
+    makeValidatorHash(ordersSpendScriptDetails.validatorHash)
+  );
+
+  // order token policy id
+  const ordersMintPolicyHash = makeMintingPolicyHash(
+    makeValidatorHash(ordersMintScriptDetails.validatorHash)
   );
 
   const order: OrderDatum = {
-    owner: makeSignatureMultiSigScriptData(address.spendingCredential),
-    requested_handle: Buffer.from(handle).toString("hex"),
+    owner_key_hash: address.spendingCredential.toHex(),
+    price: HAL_NFT_PRICE,
     destination_address: address,
   };
+
+  // order value
+  const orderTokenAssetClass = makeAssetClass(
+    ordersMintPolicyHash,
+    ORDER_ASSET_NAME
+  );
+  const orderTokenValue: [ByteArrayLike, IntLike][] = [
+    [orderTokenAssetClass.tokenName, 1n],
+  ];
+  const orderValue = makeValue(
+    HAL_NFT_PRICE,
+    makeAssets([[orderTokenAssetClass, 1n]])
+  );
 
   // start building tx
   const txBuilder = makeTxBuilder({
     isMainnet,
   });
 
-  // <-- lock order
+  // <-- attach orders mint script
+  txBuilder.refer(ordersMintScriptTxInput);
+
+  // <-- mint order token
+  txBuilder.mintPolicyTokensUnsafe(
+    ordersMintPolicyHash,
+    orderTokenValue,
+    buildOrdersMintMintOrdersRedeemer([address])
+  );
+
+  // <-- pay order value to order spend script adress
   txBuilder.payUnsafe(
-    ordersScriptAddress,
-    makeValue(handlePrice),
+    ordersSpendScriptAddress,
+    orderValue,
     makeInlineTxOutputDatum(buildOrderData(order))
   );
 
@@ -121,11 +127,13 @@ const request = async (
  * @property {NetworkName} network Network
  * @property {Address} address User's Wallet Address to perform order
  * @property {TxInput} orderTxInput Order Tx Input
+ * @property {DeployedScripts} deployedScripts Deployed Scripts
  */
 interface CancelParams {
   network: NetworkName;
   address: Address;
   orderTxInput: TxInput;
+  deployedScripts: DeployedScripts;
 }
 
 /**
@@ -136,43 +144,62 @@ interface CancelParams {
 const cancel = async (
   params: CancelParams
 ): Promise<Result<TxBuilder, Error>> => {
-  const { network, address, orderTxInput } = params;
-
+  const { network, address, orderTxInput, deployedScripts } = params;
   const isMainnet = network == "mainnet";
   if (address.era == "Byron")
     return Err(new Error("Byron Address not supported"));
   if (address.spendingCredential.kind == "ValidatorHash")
     return Err(new Error("Must be Base address"));
 
-  // fetch orders script
-  const ordersScriptDetailsResult = await mayFailAsync(() =>
-    fetchDeployedScript(ScriptType.DEMI_ORDERS)
-  ).complete();
-  if (!ordersScriptDetailsResult.ok)
-    return Err(
-      new Error(
-        `Failed to fetch deployed orders script: ${ordersScriptDetailsResult.error}`
-      )
-    );
-  const ordersScriptDetails = ordersScriptDetailsResult.data;
+  const {
+    ordersMintScriptTxInput,
+    ordersMintScriptDetails,
+    ordersSpendScriptTxInput,
+    ordersSpendScriptDetails,
+  } = deployedScripts;
 
-  // make Order Uplc Program
-  if (!ordersScriptDetails.cbor || !ordersScriptDetails.unoptimizedCbor)
-    return Err(new Error(`Order Script Detail doesn't have CBOR`));
-  const orderUplcProgram = decodeUplcProgramV2FromCbor(
-    ordersScriptDetails.cbor
-  ).withAlt(decodeUplcProgramV2FromCbor(ordersScriptDetails.unoptimizedCbor));
+  // check if order tx input is from ordersSpendScriptAddress
+  const ordersSpendScriptAddress = makeAddress(
+    isMainnet,
+    makeValidatorHash(ordersSpendScriptDetails.validatorHash)
+  );
+  if (!orderTxInput.address.isEqual(ordersSpendScriptAddress)) {
+    return Err(
+      new Error("Order Tx Input must be from Orders Spend Script Address")
+    );
+  }
+
+  // order token policy id
+  const ordersMintPolicyHash = makeMintingPolicyHash(
+    makeValidatorHash(ordersMintScriptDetails.validatorHash)
+  );
+
+  // order value
+  const orderTokenAssetClass = makeAssetClass(
+    ordersMintPolicyHash,
+    ORDER_ASSET_NAME
+  );
+  const orderTokenValue: [ByteArrayLike, IntLike][] = [
+    [orderTokenAssetClass.tokenName, -1n],
+  ];
 
   // start building tx
   const txBuilder = makeTxBuilder({
     isMainnet,
   });
 
-  // <-- attach order script
-  txBuilder.attachUplcProgram(orderUplcProgram);
+  // <-- attach orders spend and mint scripts
+  txBuilder.refer(ordersMintScriptTxInput, ordersSpendScriptTxInput);
 
   // <-- spend order tx input
-  txBuilder.spendUnsafe(orderTxInput, buildOrderCancelRedeemer());
+  txBuilder.spendUnsafe(orderTxInput, buildOrdersSpendCancelOrderRedeemer());
+
+  // <-- burn order token value
+  txBuilder.mintPolicyTokensUnsafe(
+    ordersMintPolicyHash,
+    orderTokenValue,
+    buildOrdersMintCancelOrderRedeemer()
+  );
 
   // <-- add signer
   txBuilder.addSigners(address.spendingCredential);
@@ -182,38 +209,36 @@ const cancel = async (
 
 /**
  * @interface
- * @typedef {object} RequestParams
- * @property {NetworkName} network Network
- * @property {Address} address Wallet Address to perform mint
- * @property {string} handleName Handle Name to order (UTF8 format)
+ * @typedef {object} FetchOrdersTxInputsParams
+ * @property {ScriptDetails} ordersSpendScriptDetails Deployed Orders Spend Script Detail
  * @property {string} blockfrostApiKey Blockfrost API Key
  */
 interface FetchOrdersTxInputsParams {
-  network: NetworkName;
-  ordersScriptDetail: ScriptDetails;
+  ordersSpendScriptDetails: ScriptDetails;
   blockfrostApiKey: string;
 }
 
 /**
  * @description Fetch Orders UTxOs
  * @param {FetchOrdersTxInputsParams} params
- * @returns {Promise<Result<TxBuilder,  Error>>} Transaction Result
+ * @returns {Promise<Result<TxInput[], Error>>} Transaction Result
  */
 const fetchOrdersTxInputs = async (
   params: FetchOrdersTxInputsParams
 ): Promise<Result<TxInput[], Error>> => {
-  const { network, ordersScriptDetail, blockfrostApiKey } = params;
+  const { ordersSpendScriptDetails, blockfrostApiKey } = params;
+  const network = getNetwork(blockfrostApiKey);
   const isMainnet = network == "mainnet";
   const blockfrostV0Client = getBlockfrostV0Client(blockfrostApiKey);
 
+  const ordersSpendScriptAddress = makeAddress(
+    isMainnet,
+    makeValidatorHash(ordersSpendScriptDetails.validatorHash)
+  );
+
   // fetch order utxos
   const orderUtxosResult = await mayFailAsync(() =>
-    blockfrostV0Client.getUtxos(
-      makeAddress(
-        isMainnet,
-        makeValidatorHash(ordersScriptDetail.validatorHash)
-      )
-    )
+    blockfrostV0Client.getUtxos(ordersSpendScriptAddress)
   ).complete();
   if (!orderUtxosResult.ok)
     return Err(
@@ -233,47 +258,57 @@ const fetchOrdersTxInputs = async (
  * @interface
  * @typedef {object} IsValidOrderTxInputParams
  * @property {NetworkName} network Network
- * @property {TxInput} orderTxInput Order Tx Input
- * @property {HandlePrices} prevHandlePrices Previous Handle Prices
- * @property {HandlePrices} currentHandlePrices Current (Latest) Handle Prices
+ * @property {TxInput} orderTxInput Order TxInput
+ * @property {Address} ordersSpendScriptAddress Orders Spend Script Address
  */
 interface IsValidOrderTxInputParams {
   network: NetworkName;
   orderTxInput: TxInput;
-  prevHandlePrices: HandlePrices;
-  currentHandlePrices: HandlePrices;
+  ordersSpendScriptDetails: ScriptDetails;
 }
 
 /**
- * @description Check if the order tx input is valid
+ * @description Check TxInput is valid order UTxO
  * @param {IsValidOrderTxInputParams} params
- * @returns {Promise<Result<true, Error>>} Result
+ * @returns {boolean} True if valid order UTxO, false otherwise
  */
-const isValidOrderTxInput = async (
+const isValidOrderTxInput = (
   params: IsValidOrderTxInputParams
-): Promise<Result<true, Error>> => {
-  const { network, orderTxInput, prevHandlePrices, currentHandlePrices } =
-    params;
+): Result<true, Error> => {
+  const { network, orderTxInput, ordersSpendScriptDetails } = params;
+  const isMainnet = network == "mainnet";
+  const ordersSpendScriptAddress = makeAddress(
+    isMainnet,
+    makeValidatorHash(ordersSpendScriptDetails.validatorHash)
+  );
 
-  const orderDatumResult = mayFail(() =>
+  // check if address matches
+  if (!orderTxInput.address.isEqual(ordersSpendScriptAddress)) {
+    return Err(
+      new Error("Order TxInput must be from Orders Spend Script Address")
+    );
+  }
+
+  // check if datum is valid
+  const decodedResult = mayFail(() =>
     decodeOrderDatum(orderTxInput.datum, network)
   );
-  if (!orderDatumResult.ok)
-    return Err(
-      new Error(`Failed to decode order datum: ${orderDatumResult.error}`)
-    );
-  const { requested_handle } = orderDatumResult.data;
-  const handleName = Buffer.from(requested_handle, "hex").toString("utf8");
+  if (!decodedResult.ok) {
+    return Err(new Error("Invalid Order Datum"));
+  }
 
-  const handlePrice = Math.min(
-    calculateHandlePriceFromHandlePrices(handleName, prevHandlePrices),
-    calculateHandlePriceFromHandlePrices(handleName, currentHandlePrices)
-  );
-  if (orderTxInput.value.lovelace < BigInt(handlePrice * 1_000_000))
-    return Err(new Error("Insufficient lovelace"));
+  // check lovelace is enough
+  if (orderTxInput.value.lovelace < HAL_NFT_PRICE) {
+    return Err(new Error("Insufficient Lovelace"));
+  }
 
   return Ok(true);
 };
 
-export type { CancelParams, FetchOrdersTxInputsParams, RequestParams };
+export type {
+  CancelParams,
+  FetchOrdersTxInputsParams,
+  IsValidOrderTxInputParams,
+  RequestParams,
+};
 export { cancel, fetchOrdersTxInputs, isValidOrderTxInput, request };

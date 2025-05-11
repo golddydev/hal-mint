@@ -7,7 +7,10 @@ use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 // Check if HAL NFT is minted
 // if any HAL NFT is minted, then UTxO can be spent
 //
-pub fn can_execute(transaction: Transaction, hal_policy_id: PolicyId) -> Bool {
+pub fn can_execute_orders(
+  transaction: Transaction,
+  hal_policy_id: PolicyId,
+) -> Bool {
   let Transaction { mint, .. } = transaction
   let is_hal_minted =
     list.has(mint |> value.from_minted_value |> value.policies, hal_policy_id)
@@ -20,7 +23,7 @@ pub fn can_execute(transaction: Transaction, hal_policy_id: PolicyId) -> Bool {
 // Check there is only one UTxO from this script
 // Check one Order NFT is burnt
 //
-pub fn can_cancel(
+pub fn can_cancel_order(
   transaction: Transaction,
   datum: OrderDatum,
   spending_output_reference: OutputReference,

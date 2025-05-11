@@ -10,6 +10,7 @@ import {
   makeMintingDataUplcProgramParameterDatum,
   makeMintProxyUplcProgramParameterDatum,
   makeMintV1UplcProgramParameterDatum,
+  makeOrdersMintUplcProgramParameterDatum,
   makeOrdersSpendUplcProgramParameterDatum,
 } from "../contracts/index.js";
 import { convertError, invariant } from "../helpers/index.js";
@@ -106,6 +107,11 @@ const deploy = async (params: DeployParams): Promise<DeployData> => {
         ...extractScriptCborsFromUplcProgram(
           ordersMintConfig.ordersMintUplcProgram
         ),
+        datumCbor: bytesToHex(
+          makeOrdersMintUplcProgramParameterDatum(
+            halPolicyHash.toHex()
+          ).data.toCbor()
+        ),
         validatorHash: ordersMintConfig.ordersMintValidatorHash.toHex(),
         policyId: ordersMintConfig.ordersMintPolicyHash.toHex(),
       };
@@ -116,7 +122,8 @@ const deploy = async (params: DeployParams): Promise<DeployData> => {
         ),
         datumCbor: bytesToHex(
           makeOrdersSpendUplcProgramParameterDatum(
-            halPolicyHash.toHex()
+            halPolicyHash.toHex(),
+            ordersMintConfig.ordersMintPolicyHash.toHex()
           ).data.toCbor()
         ),
         validatorHash: ordersSpendConfig.ordersValidatorHash.toHex(),
@@ -124,7 +131,7 @@ const deploy = async (params: DeployParams): Promise<DeployData> => {
       };
     default:
       throw new Error(
-        `Contract name must be one of "mint_proxy.mint" | "mint_v1.withdraw" | "minting_data_proxy.spend" | "minting_data_v1.withdraw" | "orders.spend"`
+        `Contract name must be one of "mint_proxy.mint" | "mint_v1.withdraw" | "minting_data_proxy.spend" | "minting_data_v1.withdraw" | "orders_spend.spend" | "orders_mint.mint"`
       );
   }
 };
@@ -147,8 +154,10 @@ interface DeployedScripts {
   mintingDataScriptTxInput: TxInput;
   mintV1ScriptDetails: ScriptDetails;
   mintV1ScriptTxInput: TxInput;
-  ordersScriptDetails: ScriptDetails;
-  ordersScriptTxInput: TxInput;
+  ordersMintScriptDetails: ScriptDetails;
+  ordersMintScriptTxInput: TxInput;
+  ordersSpendScriptDetails: ScriptDetails;
+  ordersSpendScriptTxInput: TxInput;
 }
 
 const fetchAllDeployedScripts = async (
@@ -207,22 +216,40 @@ const fetchAllDeployedScripts = async (
         decodeUplcProgramV2FromCbor(mintV1ScriptDetails.unoptimizedCbor)
       );
 
-    // "orders.spend"
-    const ordersScriptDetails = await fetchDeployedScript(
+    // "orders_mint.mint"
+    const ordersMintScriptDetails = await fetchDeployedScript(
       ScriptType.DEMI_ORDERS
     );
     invariant(
-      ordersScriptDetails.refScriptUtxo,
-      "Orders has no Ref script UTxO"
+      ordersMintScriptDetails.refScriptUtxo,
+      "Orders Mint has no Ref script UTxO"
     );
-    const ordersScriptTxInput = await blockfrostV0Client.getUtxo(
-      makeTxOutputId(ordersScriptDetails.refScriptUtxo)
+    const ordersMintScriptTxInput = await blockfrostV0Client.getUtxo(
+      makeTxOutputId(ordersMintScriptDetails.refScriptUtxo)
     );
-    if (ordersScriptDetails.unoptimizedCbor)
-      ordersScriptTxInput.output.refScript = (
-        ordersScriptTxInput.output.refScript as UplcProgramV2
+    if (ordersMintScriptDetails.unoptimizedCbor)
+      ordersMintScriptTxInput.output.refScript = (
+        ordersMintScriptTxInput.output.refScript as UplcProgramV2
       )?.withAlt(
-        decodeUplcProgramV2FromCbor(ordersScriptDetails.unoptimizedCbor)
+        decodeUplcProgramV2FromCbor(ordersMintScriptDetails.unoptimizedCbor)
+      );
+
+    // "orders_spend.spend"
+    const ordersSpendScriptDetails = await fetchDeployedScript(
+      ScriptType.DEMI_ORDERS
+    );
+    invariant(
+      ordersSpendScriptDetails.refScriptUtxo,
+      "Orders Spend has no Ref script UTxO"
+    );
+    const ordersSpendScriptTxInput = await blockfrostV0Client.getUtxo(
+      makeTxOutputId(ordersSpendScriptDetails.refScriptUtxo)
+    );
+    if (ordersSpendScriptDetails.unoptimizedCbor)
+      ordersSpendScriptTxInput.output.refScript = (
+        ordersSpendScriptTxInput.output.refScript as UplcProgramV2
+      )?.withAlt(
+        decodeUplcProgramV2FromCbor(ordersSpendScriptDetails.unoptimizedCbor)
       );
 
     return Ok({
@@ -232,8 +259,10 @@ const fetchAllDeployedScripts = async (
       mintingDataScriptTxInput,
       mintV1ScriptDetails,
       mintV1ScriptTxInput,
-      ordersScriptDetails,
-      ordersScriptTxInput,
+      ordersMintScriptDetails,
+      ordersMintScriptTxInput,
+      ordersSpendScriptDetails,
+      ordersSpendScriptTxInput,
     });
   } catch (err) {
     return Err(convertError(err));
