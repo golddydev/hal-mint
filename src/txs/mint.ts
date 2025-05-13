@@ -63,7 +63,7 @@ const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
   console.log(`${orders.length} Orders are picked`);
 
   const orderedAssets: OrderedAsset[] = orders.map((order) => {
-    const { orderTxInput, assetUtf8Name, assetDatum } = order;
+    const { orderTxInput, assetUtf8Name } = order;
     const decodedOrder = decodeOrderDatum(orderTxInput.datum, network);
     const { destination_address, price } = decodedOrder;
     return {
@@ -71,7 +71,6 @@ const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
       hexName: Buffer.from(assetUtf8Name, "utf8").toString("hex"),
       destinationAddress: destination_address,
       price,
-      assetDatum,
     };
   });
 

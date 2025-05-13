@@ -12,6 +12,9 @@ const minting_data_asset_policy_id =
 // a new hal is minted
 const minting_data_asset_name = #"000de140726f6f744068616c5f6d696e74"
 
+// Minted H.A.L. NFT's Value of MPT
+pub const mpt_minted_value = "minted"
+
 pub type MintingData {
   // mpt root hash
   mpt_root_hash: ByteArray,

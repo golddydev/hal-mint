@@ -4,8 +4,7 @@ use aiken/transaction.{InlineDatum, Input, Output}
 use aiken/transaction/credential.{Address}
 use aiken/transaction/value.{PolicyId, Value}
 use common/cip68.{prefix_100, prefix_222}
-use common/hashes.{DatumHash}
-use common/utils.{get_datum_hash}
+use hal_nft_mint/minting_data.{mpt_minted_value}
 use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 use validations/minting_data/types.{Proof}
 
@@ -54,7 +53,7 @@ pub fn all_orders_are_satisfied(
           // check minted assets are correctly sent to correct address
           // and new_mint_value and ref output's datum hash (to update mpt)
           expect [ref_output, user_output, ..rest_outputs] = outputs
-          let (new_expected_mint_value, ref_output_datum_hash) =
+          let new_expected_mint_value =
             check_ref_and_user_outputs(
               ref_output,
               user_output,
@@ -69,8 +68,7 @@ pub fn all_orders_are_satisfied(
           // update root
           // this function also checks asset name is in trie
           // with old value (empty bytearray)
-          let new_root =
-            update_root(root, asset_name, mpt_proof, ref_output_datum_hash)
+          let new_root = update_root(root, asset_name, mpt_proof)
 
           // update total price
           let new_total_price = total_price + price
@@ -135,7 +133,7 @@ fn check_ref_and_user_outputs(
   destination_address: Address,
   mint_value: Value,
   orders_mint_policy_id: PolicyId,
-) -> (Value, DatumHash) {
+) -> Value {
   // make ref asset name and user asset name from asset_name
   let ref_asset_name = bytearray.concat(prefix_100, asset_name)
   let user_asset_name = bytearray.concat(prefix_222, asset_name)
@@ -143,8 +141,8 @@ fn check_ref_and_user_outputs(
   let Output {
     address: ref_output_address,
     value: ref_output_value,
-    datum: ref_output_datum,
     reference_script: ref_output_reference_script,
+    ..
   } = ref_output
   let Output { address: user_output_address, value: user_output_value, .. } =
     user_output
@@ -155,8 +153,7 @@ fn check_ref_and_user_outputs(
     value.zero()
       |> value.add(policy_id, ref_asset_name, 1)
   expect value.without_lovelace(ref_output_value) == expected_ref_value
-  // get ref asset's datum's hash
-  let ref_output_datum_hash = get_datum_hash(ref_output_datum)
+  // set reference asset's datum
   expect ref_output_reference_script == None
 
   // check user output
@@ -173,7 +170,7 @@ fn check_ref_and_user_outputs(
       |> value.add(policy_id, user_asset_name, 1)
       |> value.add(orders_mint_policy_id, order_asset_name, -1)
 
-  (new_mint_value, ref_output_datum_hash)
+  new_mint_value
 }
 
 // This function updates the mpt root
@@ -187,7 +184,6 @@ fn update_root(
   root: mpt.MerklePatriciaForestry,
   asset_name: ByteArray,
   mpt_proof: mpt.Proof,
-  datum_hash: DatumHash,
 ) -> mpt.MerklePatriciaForestry {
-  root |> mpt.update(asset_name, mpt_proof, #"", datum_hash)
+  root |> mpt.update(asset_name, mpt_proof, #"", mpt_minted_value)
 }

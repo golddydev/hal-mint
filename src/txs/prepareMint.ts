@@ -11,6 +11,7 @@ import { makeTxBuilder, TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
 import { fetchMintingData, fetchSettings } from "../configs/index.js";
+import { MPT_MINTED_VALUE } from "../constants/index.js";
 import {
   buildMintingData,
   buildMintingDataMintRedeemer,
@@ -23,7 +24,6 @@ import {
   SettingsV1,
 } from "../contracts/index.js";
 import { getBlockfrostV0Client, getNetwork } from "../helpers/index.js";
-import { getDatumHash } from "../utils/index.js";
 import { DeployedScripts, fetchAllDeployedScripts } from "./deploy.js";
 import { OrderedAsset } from "./types.js";
 
@@ -105,22 +105,21 @@ const prepareMintTransaction = async (
   // make Proofs for Minting Data V1 Redeemer
   const proofs: Proof[] = [];
   for (const orderedAsset of orderedAssets) {
-    const { utf8Name, hexName, assetDatum } = orderedAsset;
+    const { utf8Name, hexName } = orderedAsset;
 
     try {
       // NOTE:
       // Have to remove handles if transaction fails
       const mpfProof = await db.prove(utf8Name);
-      const datumHash = getDatumHash(assetDatum);
       await db.delete(utf8Name);
-      await db.insert(utf8Name, Buffer.from(datumHash, "hex"));
+      await db.insert(utf8Name, MPT_MINTED_VALUE);
       proofs.push({
         mpt_proof: parseMPTProofJSON(mpfProof.toJSON()),
         asset_name: hexName,
       });
     } catch (e) {
-      console.warn("Handle already exists", utf8Name, e);
-      return Err(new Error(`Handle "${utf8Name}" already exists`));
+      console.warn("Asset name is not pre-defined", utf8Name, e);
+      return Err(new Error(`Asset name is not pre-defined: ${utf8Name}`));
     }
   }
 

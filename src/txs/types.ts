@@ -6,8 +6,6 @@ interface OrderedAsset {
   utf8Name: string;
   destinationAddress: Address;
   price: bigint;
-  // asset datum
-  assetDatum: InlineTxOutputDatum;
 }
 
 interface Order {
