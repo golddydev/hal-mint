@@ -22,4 +22,12 @@ pub type SettingsV1 {
   // all minting handles logic (for both new and legacy)
   // minting_data_asset is locked inside that script
   minting_data_script_hash: ScriptHash,
+  // normal phase
+  normal_phase_start_time: Int,
+  // og handle owners' phase 
+  // they will get access to order NFT mint 2 hours early
+  phase_one_start_time: Int,
+  // ultra rare handle owners' phase
+  // they will get access to order NFT mint 1 hour early
+  phase_two_start_time: Int,
 }
