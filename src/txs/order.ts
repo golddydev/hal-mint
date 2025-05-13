@@ -7,6 +7,7 @@ import {
   makeAssets,
   makeInlineTxOutputDatum,
   makeMintingPolicyHash,
+  makePubKeyHash,
   makeValidatorHash,
   makeValue,
   TxInput,
@@ -71,7 +72,8 @@ const request = async (
   const settingsResult = await fetchSettings(network);
   if (!settingsResult.ok)
     return Err(new Error(`Failed to fetch settings: ${settingsResult.error}`));
-  const { settingsAssetTxInput } = settingsResult.data;
+  const { settingsAssetTxInput, settingsV1 } = settingsResult.data;
+  const { orders_minter } = settingsV1;
 
   // orders spend script address
   const ordersSpendScriptAddress = makeAddress(
@@ -110,6 +112,9 @@ const request = async (
 
   // <-- attach settings asset as reference input
   txBuilder.refer(settingsAssetTxInput);
+
+  // <-- add orders_minter signer
+  txBuilder.addSigners(makePubKeyHash(orders_minter));
 
   // <-- attach orders mint script
   txBuilder.refer(ordersMintScriptTxInput);

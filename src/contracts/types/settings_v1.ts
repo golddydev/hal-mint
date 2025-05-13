@@ -20,6 +20,8 @@ interface SettingsV1 {
   // all minting handles logic (for both new and legacy)
   // minting_data_asset is locked inside that script
   minting_data_script_hash: string;
+  // required when mint Orders NFT
+  orders_minter: string;
 }
 
 export type { SettingsV1 };

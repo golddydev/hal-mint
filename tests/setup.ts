@@ -116,12 +116,19 @@ const setup = async () => {
   const adminWallet = emulator.createWallet(ACCOUNT_LOVELACE);
   emulator.tick(200);
 
-  // allowed minters wallets
+  // allowed minter wallet
   const allowedMinterWallet: SimpleWallet =
     emulator.createWallet(ACCOUNT_LOVELACE);
   emulator.tick(200);
   const allowedMinterPubKeyHash: string =
     allowedMinterWallet.spendingPubKeyHash.toHex();
+
+  // orders minter wallet
+  const ordersMinterWallet: SimpleWallet =
+    emulator.createWallet(ACCOUNT_LOVELACE);
+  emulator.tick(200);
+  const ordersMinterPubKeyHash: string =
+    ordersMinterWallet.spendingPubKeyHash.toHex();
 
   // cip68 script wallet
   const cip68Wallet = emulator.createWallet(ACCOUNT_LOVELACE);
@@ -170,6 +177,7 @@ const setup = async () => {
     orders_mint_policy_id: ordersMintConfig.ordersMintPolicyHash.toHex(),
     minting_data_script_hash:
       mintingDataConfig.mintingDataValidatorHash.toHex(),
+    orders_minter: ordersMinterPubKeyHash,
   };
   const settings: Settings = {
     mint_governor: mintV1Config.mintV1ValidatorHash.toHex(),
@@ -369,6 +377,7 @@ const setup = async () => {
       fundWallet,
       adminWallet,
       allowedMinterWallet,
+      ordersMinterWallet,
       cip68Wallet,
       paymentWallet,
       usersWallets,

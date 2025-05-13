@@ -34,7 +34,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
         "Orders tx inputs is not an array"
       );
 
-      const { usersWallets } = wallets;
+      const { usersWallets, ordersMinterWallet } = wallets;
       const user1Wallet = usersWallets[0];
 
       const txBuilderResult = await request({
@@ -51,10 +51,13 @@ describe.sequential("Koralab H.A.L Tests", () => {
         await user1Wallet.utxos
       ).complete();
       invariant(txResult.ok, "Order Tx Complete failed");
-
       logMemAndCpu(txResult);
+
       const { tx } = txResult.data;
-      tx.addSignatures(await user1Wallet.signTx(tx));
+      tx.addSignatures([
+        ...(await user1Wallet.signTx(tx)),
+        ...(await ordersMinterWallet.signTx(tx)),
+      ]);
       const txId = await user1Wallet.submitTx(tx);
       emulator.tick(200);
 
@@ -166,7 +169,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
         "Orders tx inputs is not an array"
       );
 
-      const { usersWallets } = wallets;
+      const { usersWallets, ordersMinterWallet } = wallets;
       const user2Wallet = usersWallets[1];
 
       for (let i = 0; i < 2; i++) {
@@ -187,7 +190,10 @@ describe.sequential("Koralab H.A.L Tests", () => {
         logMemAndCpu(txResult);
 
         const { tx } = txResult.data;
-        tx.addSignatures(await user2Wallet.signTx(tx));
+        tx.addSignatures([
+          ...(await user2Wallet.signTx(tx)),
+          ...(await ordersMinterWallet.signTx(tx)),
+        ]);
         const txId = await user2Wallet.submitTx(tx);
         emulator.tick(200);
 
@@ -324,7 +330,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
         "Orders tx inputs is not an array"
       );
 
-      const { usersWallets } = wallets;
+      const { usersWallets, ordersMinterWallet } = wallets;
       const user1Wallet = usersWallets[0];
 
       for (let i = 0; i < 16; i++) {
@@ -336,11 +342,19 @@ describe.sequential("Koralab H.A.L Tests", () => {
         invariant(txBuilderResult.ok, "Order tx failed");
 
         const txBuilder = txBuilderResult.data;
-        const tx = await txBuilder.build({
-          changeAddress: user1Wallet.address,
-          spareUtxos: await user1Wallet.utxos,
-        });
-        tx.addSignatures(await user1Wallet.signTx(tx));
+        const txResult = await mayFailTransaction(
+          txBuilder,
+          user1Wallet.address,
+          await user1Wallet.utxos
+        ).complete();
+        invariant(txResult.ok, "Order Tx Complete failed");
+        logMemAndCpu(txResult);
+
+        const { tx } = txResult.data;
+        tx.addSignatures([
+          ...(await user1Wallet.signTx(tx)),
+          ...(await ordersMinterWallet.signTx(tx)),
+        ]);
         const txId = await user1Wallet.submitTx(tx);
         emulator.tick(200);
 

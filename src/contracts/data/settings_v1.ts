@@ -23,6 +23,7 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     orders_spend_script_address,
     orders_mint_policy_id,
     minting_data_script_hash,
+    orders_minter,
   } = settings;
 
   return makeConstrData(0, [
@@ -34,6 +35,7 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     buildAddressData(orders_spend_script_address as ShelleyAddress),
     makeByteArrayData(orders_mint_policy_id),
     makeByteArrayData(minting_data_script_hash),
+    makeByteArrayData(orders_minter),
   ]);
 };
 
@@ -90,6 +92,12 @@ const decodeSettingsV1Data = (
     "minting_data_script_hash must be ByteArray"
   ).toHex();
 
+  // orders_minter
+  const orders_minter = expectByteArrayData(
+    settingsV1ConstrData.fields[8],
+    "orders_minter must be ByteArray"
+  ).toHex();
+
   return {
     policy_id,
     allowed_minter,
@@ -99,6 +107,7 @@ const decodeSettingsV1Data = (
     orders_spend_script_address,
     orders_mint_policy_id,
     minting_data_script_hash,
+    orders_minter,
   };
 };
 
