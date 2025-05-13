@@ -73,6 +73,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
       emulator,
       wallets,
       ordersTxInputs,
+      deployedScripts,
     }) => {
       invariant(
         Array.isArray(ordersTxInputs),
@@ -90,10 +91,11 @@ describe.sequential("Koralab H.A.L Tests", () => {
       const assetNames = ["hal-1"];
 
       const txBuilderResult = await mint({
+        network,
         address: allowedMinterWallet.address,
         orders,
         db,
-        blockfrostApiKey: "",
+        deployedScripts,
       });
       invariant(txBuilderResult.ok, "Mint Tx Building Failed");
 
@@ -198,7 +200,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
   // cannot mint 2 new assets because one asset name is not pre-defined in MPT - <hal-2, no-hal-1>
   myTest(
     "cannot mint 2 new assets because one asset name is not pre-defined in MPT - <hal-2, no-hal-1>",
-    async ({ db, wallets, ordersTxInputs }) => {
+    async ({ network, db, wallets, ordersTxInputs, deployedScripts }) => {
       invariant(
         Array.isArray(ordersTxInputs),
         "Orders tx inputs is not an array"
@@ -214,10 +216,11 @@ describe.sequential("Koralab H.A.L Tests", () => {
       }));
 
       const txResult = await mint({
+        network,
         address: allowedMinterWallet.address,
         orders,
         db,
-        blockfrostApiKey: "",
+        deployedScripts,
       });
       invariant(!txResult.ok, "Mint Tx Building Should Fail");
       assert(txResult.error.message.includes("Asset name is not pre-defined"));
@@ -357,6 +360,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
       emulator,
       wallets,
       ordersTxInputs,
+      deployedScripts,
     }) => {
       invariant(
         Array.isArray(ordersTxInputs),
@@ -373,10 +377,11 @@ describe.sequential("Koralab H.A.L Tests", () => {
       }));
 
       const txBuilderResult = await mint({
+        network,
         address: allowedMinterWallet.address,
         orders,
         db,
-        blockfrostApiKey: "",
+        deployedScripts,
       });
       invariant(txBuilderResult.ok, "Mint Tx Building Failed");
 

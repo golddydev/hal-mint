@@ -7,7 +7,7 @@ import {
   makeStakingValidatorHash,
   makeValue,
 } from "@helios-lang/ledger";
-import { makeTxBuilder, TxBuilder } from "@helios-lang/tx-utils";
+import { makeTxBuilder, NetworkName, TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
 import { fetchMintingData, fetchSettings } from "../configs/index.js";
@@ -23,23 +23,24 @@ import {
   Settings,
   SettingsV1,
 } from "../contracts/index.js";
-import { getBlockfrostV0Client, getNetwork } from "../helpers/index.js";
-import { DeployedScripts, fetchAllDeployedScripts } from "./deploy.js";
+import { DeployedScripts } from "./deploy.js";
 import { OrderedAsset } from "./types.js";
 
 /**
  * @interface
  * @typedef {object} PrepareMintParams
+ * @property {NetworkName} network Network
  * @property {Address} address Wallet Address to perform mint
  * @property {OrderedAsset[]} orderedAssets Ordered Assets Information
  * @property {Trie} db Trie DB
- * @property {string} blockfrostApiKey Blockfrost API Key
+ * @property {DeployedScripts} deployedScripts Deployed Scripts
  */
 interface PrepareMintParams {
+  network: NetworkName;
   address: Address;
   orderedAssets: OrderedAsset[];
   db: Trie;
-  blockfrostApiKey: string;
+  deployedScripts: DeployedScripts;
 }
 
 /**
@@ -53,24 +54,17 @@ const prepareMintTransaction = async (
   Result<
     {
       txBuilder: TxBuilder;
-      deployedScripts: DeployedScripts;
       settings: Settings;
       settingsV1: SettingsV1;
     },
     Error
   >
 > => {
-  const { address, orderedAssets, db, blockfrostApiKey } = params;
-  const network = getNetwork(blockfrostApiKey);
+  const { network, address, orderedAssets, db, deployedScripts } = params;
   const isMainnet = network == "mainnet";
   if (address.era == "Byron")
     return Err(new Error("Byron Address not supported"));
-  const blockfrostV0Client = getBlockfrostV0Client(blockfrostApiKey);
 
-  // fetch deployed scripts
-  const fetchedResult = await fetchAllDeployedScripts(blockfrostV0Client);
-  if (!fetchedResult.ok)
-    return Err(new Error(`Failed to fetch scripts: ${fetchedResult.error}`));
   const {
     mintProxyScriptTxInput,
     mintingDataScriptTxInput,
@@ -78,7 +72,7 @@ const prepareMintTransaction = async (
     mintV1ScriptTxInput,
     ordersMintScriptTxInput,
     ordersSpendScriptTxInput,
-  } = fetchedResult.data;
+  } = deployedScripts;
 
   // fetch settings
   const settingsResult = await fetchSettings(network);
@@ -199,7 +193,6 @@ const prepareMintTransaction = async (
 
   return Ok({
     txBuilder,
-    deployedScripts: fetchedResult.data,
     settings,
     settingsV1,
   });

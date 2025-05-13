@@ -8,7 +8,7 @@ import {
   makeValidatorHash,
   makeValue,
 } from "@helios-lang/ledger";
-import { TxBuilder } from "@helios-lang/tx-utils";
+import { NetworkName, TxBuilder } from "@helios-lang/tx-utils";
 import { Err, Ok, Result } from "ts-res";
 
 import {
@@ -22,7 +22,7 @@ import {
   decodeOrderDatum,
   makeVoidData,
 } from "../contracts/index.js";
-import { getNetwork } from "../helpers/index.js";
+import { DeployedScripts } from "./deploy.js";
 import { isValidOrderTxInput } from "./order.js";
 import { prepareMintTransaction } from "./prepareMint.js";
 import { Order, OrderedAsset } from "./types.js";
@@ -30,16 +30,19 @@ import { Order, OrderedAsset } from "./types.js";
 /**
  * @interface
  * @typedef {object} MintParams
+ * @property {NetworkName} network Network
  * @property {Address} address Wallet Address to perform mint
  * @property {Order[]} orders Order Tx Inputs and asset names to mint
  * @property {Trie} db Trie DB
  * @property {string} blockfrostApiKey Blockfrost API Key
+ * @property {DeployedScripts} deployedScripts Deployed Scripts
  */
 interface MintParams {
+  network: NetworkName;
   address: Address;
   orders: Order[];
   db: Trie;
-  blockfrostApiKey: string;
+  deployedScripts: DeployedScripts;
 }
 
 /**
@@ -48,8 +51,7 @@ interface MintParams {
  * @returns {Promise<Result<TxBuilder,  Error>>} Transaction Result
  */
 const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
-  const { orders, blockfrostApiKey } = params;
-  const network = getNetwork(blockfrostApiKey);
+  const { network, orders, deployedScripts } = params;
 
   // refactor Orders Tx Inputs
   // NOTE:
@@ -86,8 +88,7 @@ const mint = async (params: MintParams): Promise<Result<TxBuilder, Error>> => {
       )
     );
   }
-  const { txBuilder, deployedScripts, settingsV1 } =
-    preparedTxBuilderResult.data;
+  const { txBuilder, settingsV1 } = preparedTxBuilderResult.data;
   const {
     mintProxyScriptDetails,
     ordersSpendScriptDetails,
