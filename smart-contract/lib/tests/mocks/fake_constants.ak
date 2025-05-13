@@ -50,11 +50,7 @@ pub const orders_mint_policy_id: PolicyId =
 
 pub const minting_data_script_hash: ScriptHash = #"3333"
 
-pub const phase_one_start_time: Int = 1715702400
-
-pub const phase_two_start_time: Int = 1715706000
-
-pub const normal_phase_start_time: Int = 1715709600
+pub const orders_minter: VerificationKeyHash = #"11113333"
 
 // other constants
 pub const min_order_lovelace = 3_000_000

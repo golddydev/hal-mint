@@ -212,6 +212,10 @@ None (minting policy)
 
   - must attach `Settings` NFT in reference inputs.
 
+  - must be signed by `orders_minter` from `Settings`
+
+    - This will guarantee that white-listed users can mint early and others have to wait till minting opens to every body.
+
   - `own_minting_policy` (policy id of itself) must be same as `orders_mint_policy_id` from `Settings`
 
   - assume that transaction outputs have order outputs (`Order UTxOs`) in same order as `destination_addresses`. (`List<Address>` in redeemer)

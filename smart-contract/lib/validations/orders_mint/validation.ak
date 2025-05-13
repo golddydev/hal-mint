@@ -17,7 +17,8 @@ pub fn can_mint_orders(
   own_policy_id: PolicyId,
   transaction: Transaction,
 ) -> Bool {
-  let Transaction { outputs, reference_inputs, mint, .. } = transaction
+  let Transaction { outputs, reference_inputs, extra_signatories, mint, .. } =
+    transaction
 
   // find settings and parse
   let Settings { data: settings_data, .. } = find_settings(reference_inputs)
@@ -26,11 +27,16 @@ pub fn can_mint_orders(
     hal_nft_price,
     orders_spend_script_address,
     orders_mint_policy_id,
+    orders_minter,
     ..
   } = settings_datum
 
   // check order mint policy id is correct
   expect orders_mint_policy_id == own_policy_id
+
+  // must be signed by orders_minter
+  let is_orders_minter_signed = list.has(extra_signatories, orders_minter)
+  expect is_orders_minter_signed
 
   let expected_mint_value <-
     are_all_orders_minted(
