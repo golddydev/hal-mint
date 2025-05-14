@@ -9,6 +9,7 @@ import {
 import { NetworkName } from "@helios-lang/tx-utils";
 
 import {
+  getCip68UplcProgram,
   getMintingDataSpendUplcProgram,
   getMintProxyMintUplcProgram,
   getMintV1WithdrawUplcProgram,
@@ -90,6 +91,11 @@ const buildContracts = (params: BuildContractsParams) => {
     ordersValidatorHash
   );
 
+  // "cip68.spend"
+  const cip68UplcProgram = getCip68UplcProgram();
+  const cip68ValidatorHash = makeValidatorHash(cip68UplcProgram.hash());
+  const cip68ValidatorAddress = makeAddress(isMainnet, cip68ValidatorHash);
+
   return {
     halPolicyHash,
     mintProxy: {
@@ -116,6 +122,11 @@ const buildContracts = (params: BuildContractsParams) => {
       ordersSpendUplcProgram,
       ordersValidatorHash,
       ordersSpendValidatorAddress,
+    },
+    cip68: {
+      cip68UplcProgram,
+      cip68ValidatorHash,
+      cip68ValidatorAddress,
     },
   };
 };

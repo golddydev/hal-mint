@@ -1,8 +1,12 @@
-import { makeTxOutputId } from "@helios-lang/ledger";
+import { makeAssetClass, makeTxOutputId } from "@helios-lang/ledger";
 import { Ok } from "ts-res";
 import { assert, describe } from "vitest";
 
-import { HAL_NFT_PRICE } from "../src/constants/index.js";
+import {
+  HAL_NFT_PRICE,
+  PREFIX_100,
+  PREFIX_222,
+} from "../src/constants/index.js";
 import {
   buildOrdersSpendCancelOrderRedeemer,
   cancel,
@@ -14,10 +18,12 @@ import {
   mint,
   Order,
   request,
+  update,
 } from "../src/index.js";
 import { myTest } from "./setup.js";
 import {
-  balanceOf,
+  balanceOfAddress,
+  balanceOfWallet,
   logMemAndCpu,
   makeHalAssetDatum,
   referenceAssetValue,
@@ -83,7 +89,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
         "Orders tx inputs is not an array"
       );
 
-      const { usersWallets, allowedMinterWallet, cip68Wallet } = wallets;
+      const { usersWallets, allowedMinterWallet } = wallets;
       const user1Wallet = usersWallets[0];
 
       const orders: Order[] = ordersTxInputs.map((orderTxInput) => ({
@@ -120,8 +126,12 @@ describe.sequential("Koralab H.A.L Tests", () => {
       const settingsResult = await fetchSettings(network);
       invariant(settingsResult.ok, "Settings Fetch Failed");
       const { settingsV1 } = settingsResult.data;
-      const user1Balance = await balanceOf(user1Wallet);
-      const cip68Balance = await balanceOf(cip68Wallet);
+      const { cip68_script_address } = settingsV1;
+      const user1Balance = await balanceOfWallet(user1Wallet);
+      const cip68Balance = await balanceOfAddress(
+        emulator,
+        cip68_script_address
+      );
 
       assert(
         user1Balance.isGreaterOrEqual(
@@ -157,6 +167,71 @@ describe.sequential("Koralab H.A.L Tests", () => {
 
       // inspect db
       inspect(db);
+    }
+  );
+
+  // user_1 can update <hal-1> datum
+  myTest(
+    "user_1 can update <hal-1> datum",
+    async ({ network, emulator, wallets, deployedScripts }) => {
+      const { usersWallets, cip68AdminWallet } = wallets;
+      const user1Wallet = usersWallets[0];
+
+      const settingsResult = await fetchSettings(network);
+      invariant(settingsResult.ok, "Settings Fetch Failed");
+      const { settingsV1 } = settingsResult.data;
+      const { policy_id, cip68_script_address } = settingsV1;
+      const refUtxos = await emulator.getUtxos(cip68_script_address);
+
+      const assetUtf8Name = "hal-1";
+      const assetHexName = Buffer.from(assetUtf8Name).toString("hex");
+      const refAssetName = `${PREFIX_100}${assetHexName}`;
+      const userAssetName = `${PREFIX_222}${assetHexName}`;
+      const foundRefUtxo = refUtxos.find((utxo) =>
+        utxo.value.assets.hasAssetClass(
+          makeAssetClass(`${policy_id}.${refAssetName}`)
+        )
+      );
+      invariant(foundRefUtxo, "Reference Utxo Not Found");
+      const userUtxos = await user1Wallet.utxos;
+      const foundUserUtxo = userUtxos.find((utxo) =>
+        utxo.value.assets.hasAssetClass(
+          makeAssetClass(`${policy_id}.${userAssetName}`)
+        )
+      );
+      invariant(foundUserUtxo, "User Utxo Not Found");
+
+      const newDatum = makeHalAssetDatum("hal-1-updated");
+
+      const txBuilderResult = await update({
+        network,
+        assetUtf8Name: "hal-1",
+        newDatum,
+        refTxInput: foundRefUtxo,
+        userTxInput: foundUserUtxo,
+        deployedScripts,
+      });
+      invariant(txBuilderResult.ok, "Update Tx Building failed");
+
+      const txBuilder = txBuilderResult.data;
+      const txResult = await mayFailTransaction(
+        txBuilder,
+        user1Wallet.address,
+        userUtxos
+      ).complete();
+      invariant(txResult.ok, "Update Tx Complete failed");
+      logMemAndCpu(txResult);
+
+      const { tx } = txResult.data;
+      tx.addSignatures([
+        ...(await cip68AdminWallet.signTx(tx)),
+        ...(await user1Wallet.signTx(tx)),
+      ]);
+      const txId = await user1Wallet.submitTx(tx);
+      emulator.tick(200);
+
+      const updatedUtxo = await emulator.getUtxo(makeTxOutputId(txId, 0));
+      invariant(updatedUtxo.datum!.hash.toHex() === newDatum.hash.toHex());
     }
   );
 
@@ -283,7 +358,8 @@ describe.sequential("Koralab H.A.L Tests", () => {
       for (let i = 0; i < 2; i++) {
         const { usersWallets } = wallets;
         const user2Wallet = usersWallets[1];
-        const beforeUser2Lovelace = (await balanceOf(user2Wallet)).lovelace;
+        const beforeUser2Lovelace = (await balanceOfWallet(user2Wallet))
+          .lovelace;
 
         const txBuilderResult = await cancel({
           network,
@@ -307,7 +383,8 @@ describe.sequential("Koralab H.A.L Tests", () => {
         await user2Wallet.submitTx(tx);
         emulator.tick(200);
 
-        const afterUser2Lovelace = (await balanceOf(user2Wallet)).lovelace;
+        const afterUser2Lovelace = (await balanceOfWallet(user2Wallet))
+          .lovelace;
 
         invariant(
           afterUser2Lovelace - beforeUser2Lovelace > HAL_NFT_PRICE - 1_000_000n,
@@ -381,7 +458,7 @@ describe.sequential("Koralab H.A.L Tests", () => {
         "Orders tx inputs is not an array"
       );
 
-      const { usersWallets, allowedMinterWallet, cip68Wallet } = wallets;
+      const { usersWallets, allowedMinterWallet } = wallets;
       const user1Wallet = usersWallets[0];
 
       const orders: Order[] = ordersTxInputs.map((orderTxInput, i) => ({
@@ -417,8 +494,12 @@ describe.sequential("Koralab H.A.L Tests", () => {
       const settingsResult = await fetchSettings(network);
       invariant(settingsResult.ok, "Settings Fetch Failed");
       const { settingsV1 } = settingsResult.data;
-      const user1Balance = await balanceOf(user1Wallet);
-      const cip68Balance = await balanceOf(cip68Wallet);
+      const { cip68_script_address } = settingsV1;
+      const user1Balance = await balanceOfWallet(user1Wallet);
+      const cip68Balance = await balanceOfAddress(
+        emulator,
+        cip68_script_address
+      );
 
       orders.map((order) => {
         assert(

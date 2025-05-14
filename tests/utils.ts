@@ -1,12 +1,13 @@
 import { bytesToHex } from "@helios-lang/codec-utils";
 import {
+  Address,
   addValues,
   makeAssetClass,
   makeAssets,
   makeInlineTxOutputDatum,
   makeValue,
 } from "@helios-lang/ledger";
-import { SimpleWallet } from "@helios-lang/tx-utils";
+import { Emulator, SimpleWallet } from "@helios-lang/tx-utils";
 import {
   decodeUplcProgramV2FromCbor,
   makeByteArrayData,
@@ -35,7 +36,15 @@ const extractScriptCborsFromUplcProgram = (
   ];
 };
 
-const balanceOf = async (wallet: SimpleWallet) => {
+const balanceOfAddress = async (emulator: Emulator, address: Address) => {
+  const utxos = await emulator.getUtxos(address);
+  const balance = utxos.reduce((acc, utxo) => {
+    return addValues([acc, utxo.value]);
+  }, makeValue(0n));
+  return balance;
+};
+
+const balanceOfWallet = async (wallet: SimpleWallet) => {
   const utxos = await wallet.utxos;
   const balance = utxos.reduce((acc, utxo) => {
     return addValues([acc, utxo.value]);
@@ -153,7 +162,8 @@ const makeHalAssetDatum = (assetName: string) => {
 
 export {
   alwaysSucceedMintUplcProgram,
-  balanceOf,
+  balanceOfAddress,
+  balanceOfWallet,
   extractScriptCborsFromUplcProgram,
   logMemAndCpu,
   makeHalAssetDatum,

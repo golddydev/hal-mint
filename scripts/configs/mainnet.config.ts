@@ -20,9 +20,12 @@ export const PAYMENT_ADDRESS = makeAddress(
   "addr1xylxvryvzxddvl6jjeyjut2kmyhaf5pjmc933z74gmenk2e7vcxgcyv66el499jf9ck4dkf06ngr9hstrz9a23hn8v4sc89s5z"
 );
 
-// cip68 script address
-export const CIP68_SCRIPT_ADDRESS = makeAddress(
-  "addr1wxktka03n943759y4pcexpmftdhzsrrv8kcd2qs8cwgtdhgg6j4ux"
-);
+// orders_minter
+export const ORDERS_MINTER =
+  "976ec349c3a14f58959088e13e98f6cd5a1e8f27f6f3160b25e415ca";
+
+// cip68_admin
+export const CIP68_ADMIN =
+  "976ec349c3a14f58959088e13e98f6cd5a1e8f27f6f3160b25e415ca";
 
 // ------- End Settings Data -------

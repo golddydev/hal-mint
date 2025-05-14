@@ -124,7 +124,26 @@ const getOrdersSpendUplcProgram = (
     );
 };
 
+const getCip68UplcProgram = (): UplcProgramV2 => {
+  const optimizedFoundValidator = optimizedBlueprint.validators.find(
+    (validator) => validator.title == "cip68.spend"
+  );
+  const unOptimizedFoundValidator = unOptimizedBlueprint.validators.find(
+    (validator) => validator.title == "cip68.spend"
+  );
+  invariant(
+    !!optimizedFoundValidator && !!unOptimizedFoundValidator,
+    "CIP68 Validator not found"
+  );
+  return decodeUplcProgramV2FromCbor(
+    optimizedFoundValidator.compiledCode
+  ).withAlt(
+    decodeUplcProgramV2FromCbor(unOptimizedFoundValidator.compiledCode)
+  );
+};
+
 export {
+  getCip68UplcProgram,
   getMintingDataSpendUplcProgram,
   getMintProxyMintUplcProgram,
   getMintV1WithdrawUplcProgram,

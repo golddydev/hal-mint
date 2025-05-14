@@ -22,6 +22,9 @@ interface SettingsV1 {
   minting_data_script_hash: string;
   // required when mint Orders NFT
   orders_minter: string;
+  // required when spending H.A.L. reference asset
+  // from CIP68 Spending validator
+  cip68_admin: string;
 }
 
 export type { SettingsV1 };

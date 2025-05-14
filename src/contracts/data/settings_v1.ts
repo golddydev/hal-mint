@@ -24,6 +24,7 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     orders_mint_policy_id,
     minting_data_script_hash,
     orders_minter,
+    cip68_admin,
   } = settings;
 
   return makeConstrData(0, [
@@ -36,6 +37,7 @@ const buildSettingsV1Data = (settings: SettingsV1): UplcData => {
     makeByteArrayData(orders_mint_policy_id),
     makeByteArrayData(minting_data_script_hash),
     makeByteArrayData(orders_minter),
+    makeByteArrayData(cip68_admin),
   ]);
 };
 
@@ -43,7 +45,7 @@ const decodeSettingsV1Data = (
   data: UplcData,
   network: NetworkName
 ): SettingsV1 => {
-  const settingsV1ConstrData = expectConstrData(data, 0, 8);
+  const settingsV1ConstrData = expectConstrData(data, 0, 10);
 
   const policy_id = expectByteArrayData(
     settingsV1ConstrData.fields[0],
@@ -98,6 +100,12 @@ const decodeSettingsV1Data = (
     "orders_minter must be ByteArray"
   ).toHex();
 
+  // cip68_admin
+  const cip68_admin = expectByteArrayData(
+    settingsV1ConstrData.fields[9],
+    "cip68_admin must be ByteArray"
+  ).toHex();
+
   return {
     policy_id,
     allowed_minter,
@@ -108,6 +116,7 @@ const decodeSettingsV1Data = (
     orders_mint_policy_id,
     minting_data_script_hash,
     orders_minter,
+    cip68_admin,
   };
 };
 

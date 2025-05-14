@@ -1,3 +1,4 @@
+export * from "./cip68.js";
 export * from "./deploy.js";
 export * from "./mint.js";
 export * from "./order.js";

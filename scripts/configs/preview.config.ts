@@ -9,7 +9,7 @@ export const ADMIN_VERIFICATION_KEY_HASH =
 
 // ------- Settings Data -------
 
-// allowed minter verification key hash
+// allowed_minter
 export const ALLOWED_MINTER =
   "976ec349c3a14f58959088e13e98f6cd5a1e8f27f6f3160b25e415ca";
 
@@ -20,9 +20,12 @@ export const PAYMENT_ADDRESS = makeAddress(
   "addr_test1qz96txepzdhj7ryyse0mq9a97eey2es07dydshr9cgapgyv06l2rv7x0p0vtg5kufwj3avaa909ex8uswsnxnad9ccqsyaga0j"
 );
 
-// cip68 script address
-export const CIP68_SCRIPT_ADDRESS = makeAddress(
-  "addr_test1wzzctdyf9nkgrzqw6vxhaq8mpla7zhzjyjmk6txyu0wsgrgek9nj3"
-);
+// orders_minter
+export const ORDERS_MINTER =
+  "976ec349c3a14f58959088e13e98f6cd5a1e8f27f6f3160b25e415ca";
+
+// cip68_admin
+export const CIP68_ADMIN =
+  "976ec349c3a14f58959088e13e98f6cd5a1e8f27f6f3160b25e415ca";
 
 // ------- End Settings Data -------

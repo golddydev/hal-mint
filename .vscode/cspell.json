@@ -10,7 +10,9 @@
     "cbor",
     "serialise",
     "kora",
-    "foldl"
+    "foldl",
+    "utxo",
+    "utxos"
   ],
   "ignorePaths": [
     "node_modules",
