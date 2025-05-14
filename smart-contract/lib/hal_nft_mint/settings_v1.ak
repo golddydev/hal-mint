@@ -24,4 +24,7 @@ pub type SettingsV1 {
   minting_data_script_hash: ScriptHash,
   // required when mint Orders NFT
   orders_minter: VerificationKeyHash,
+  // required when spending H.A.L. reference asset
+  // from CIP68 Spending validator
+  cip68_admin: VerificationKeyHash,
 }

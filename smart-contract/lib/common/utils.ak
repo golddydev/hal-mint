@@ -17,15 +17,16 @@ pub fn is_withdrawal_script_executed(
   pairs.has_key(withdrawals, Inline(ScriptCredential(script_hash)))
 }
 
-pub fn get_spending_script_hash(
+pub fn get_own_utxo(
   inputs: List<Input>,
   spending_output_reference: OutputReference,
-) -> ScriptHash {
+) -> Output {
   expect Some(spending_input) = find_input(inputs, spending_output_reference)
-  let Input {
-    output: Output { address: Address { payment_credential, .. }, .. },
-    ..
-  } = spending_input
+  spending_input.output
+}
+
+pub fn get_own_script_hash(own_utxo: Output) -> ScriptHash {
+  let Output { address: Address { payment_credential, .. }, .. } = own_utxo
   expect ScriptCredential(spending_script_hash) = payment_credential
 
   spending_script_hash
@@ -33,10 +34,8 @@ pub fn get_spending_script_hash(
 
 pub fn get_own_utxos_count(
   inputs: List<Input>,
-  spending_output_reference: OutputReference,
+  own_script_hash: ScriptHash,
 ) -> Int {
-  let spending_script_hash =
-    get_spending_script_hash(inputs, spending_output_reference)
   let own_utxo_count =
     inputs
       |> list.count(
@@ -46,8 +45,7 @@ pub fn get_own_utxos_count(
               ..
             } = input
             when payment_credential is {
-              ScriptCredential(script_hash) ->
-                script_hash == spending_script_hash
+              ScriptCredential(script_hash) -> script_hash == own_script_hash
               _ -> False
             }
           },

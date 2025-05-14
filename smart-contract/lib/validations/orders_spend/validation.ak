@@ -1,7 +1,7 @@
 use aiken/list
 use aiken/transaction.{OutputReference, Transaction}
 use aiken/transaction/value.{PolicyId}
-use common/utils.{get_own_utxos_count}
+use common/utils.{get_own_script_hash, get_own_utxo, get_own_utxos_count}
 use hal_nft_mint/orders.{OrderDatum, order_asset_name}
 
 // Check if HAL NFT is minted
@@ -36,7 +36,9 @@ pub fn can_cancel_order(
   expect is_owner_signed
 
   // check there is only one UTxO from this script
-  let own_utxo_count = get_own_utxos_count(inputs, spending_output_reference)
+  let own_utxo = get_own_utxo(inputs, spending_output_reference)
+  let own_script_hash = get_own_script_hash(own_utxo)
+  let own_utxo_count = get_own_utxos_count(inputs, own_script_hash)
   expect own_utxo_count == 1
 
   let expected_mint_value =

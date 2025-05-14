@@ -52,5 +52,7 @@ pub const minting_data_script_hash: ScriptHash = #"3333"
 
 pub const orders_minter: VerificationKeyHash = #"11113333"
 
+pub const cip68_admin: VerificationKeyHash = #"22223333"
+
 // other constants
 pub const min_order_lovelace = 3_000_000
