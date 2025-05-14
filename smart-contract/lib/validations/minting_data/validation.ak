@@ -12,14 +12,19 @@ use validations/minting_data/types.{Proof}
 use validations/minting_data/utils.{all_orders_are_satisfied}
 
 // Validation:
-// All Decentralized Minting logic is here
+// All H.A.L. Minting logic is here
 //
 // Checks
+// - must attach Setting in reference inputs
 // - signed by allowed_minter
 // - all orders are satisfied correctly
-// and minted values are sent to correct addresses
-// and order NFTs are burnt correctly
-// - Proofs are valid (NOTE: must be in same order as orders UTxOs)
+//   and minted values are sent to correct addresses
+//   and order NFTs are burnt correctly
+//   with proofs from redeemer (NOTE: must be in same order as orders UTxOs)
+// - first output must be minting_data output with updated root hash
+//   with same value as spending UTxO
+// - second output must be payment output with total H.A.L. NFTs price
+// - must mint only H.A.L. NFTs and burn Order NFTs
 //
 pub fn can_mint(
   transaction: Transaction,
@@ -36,7 +41,7 @@ pub fn can_mint(
     ..
   } = transaction
 
-  // find settings and parse
+  // must attach Setting in reference inputs
   let Settings { data: settings_data, .. } = find_settings(reference_inputs)
   expect settings_datum: SettingsV1 = settings_data
   let SettingsV1 {
@@ -49,7 +54,7 @@ pub fn can_mint(
     ..
   } = settings_datum
 
-  // check if allowed_minter sign tx
+  // signed by allowed_minter
   expect list.has(extra_signatories, allowed_minter)
 
   // find minting data input which is own input
@@ -63,7 +68,10 @@ pub fn can_mint(
   // build merkle patricia trie from old root hash
   let root = mpt.from_root(mpt_root_hash)
 
-  // check orders with proofs
+  // all orders are satisfied correctly
+  // and minted values are sent to correct addresses
+  // and order NFTs are burnt correctly
+  // with proofs from redeemer
   let
     new_root,
     expected_mint_value,
@@ -85,7 +93,8 @@ pub fn can_mint(
   // calculate new root and expected mint value
   let new_mpt_root_hash = new_root |> mpt.root
 
-  // check minting data output
+  // first output must be minting_data output with updated root hash
+  // with same value as spending UTxO
   expect minting_data_output.address == minting_data_input.address
   expect
     value.without_lovelace(minting_data_output.value) == value.without_lovelace(
@@ -97,7 +106,7 @@ pub fn can_mint(
     )
   expect minting_data_output.reference_script == None
 
-  // check payment output
+  // second output must be payment output with total H.A.L. NFTs price
   let Output {
     address: payment_output_address,
     value: payment_output_value,
@@ -106,14 +115,18 @@ pub fn can_mint(
   expect payment_output_address == payment_address
   expect value.lovelace_of(payment_output_value) >= total_price
 
-  // check minted handles
+  // must mint only H.A.L. NFTs and burn Order NFTs
   expect value.from_minted_value(mint) == expected_mint_value
 
   True
 }
 
-// Check transaction is signed by admin
-// and No Token is minted
+// Validation:
+// When admin tries to update MPT root hash
+//
+// Checks:
+// - must not mint anything
+// - must be signed by admin
 //
 pub fn can_update_mpt(
   transaction: Transaction,

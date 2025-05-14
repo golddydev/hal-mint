@@ -16,12 +16,12 @@ pub fn can_mint_nfts(
   trace @"can_mint_nfts"
   let Transaction { inputs, .. } = transaction
 
-  // check mpt root hash is correctly updated
-  // find minting_data and check that is spent from minting_data script
+  // minting_data asset is spent from minting_data_script from parameter
   let (minting_data_input, _) = find_minting_data(inputs)
   expect
     minting_data_input.address.payment_credential == ScriptCredential(
       minting_data_script_hash,
     )
+
   True
 }

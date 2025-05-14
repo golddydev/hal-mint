@@ -7,10 +7,18 @@ use hal_nft_mint/settings.{Settings, find_settings}
 use hal_nft_mint/settings_v1.{SettingsV1}
 use validations/orders_mint/utils.{are_all_orders_minted}
 
-// Check UTxO is sent to orders spend script address
-// with correct amount of lovelace and one order Token
-// attached with correct datum 
-// (destination address, price, owner key hash)
+// Validation:
+// When user requests Order(s) to mint H.A.L. NFT(s)
+//
+// Checks:
+// - must attach Setting in reference inputs
+// - own minting policy id must be same as orders_mint_policy_id from Settings
+// - must be signed by orders_minter
+// - all Orders NFTs are minted correctly
+//   and sent to orders_spend_script_address 
+//   with correct amount of lovelace and one Order NFT and valid datum
+//   (destination address, price, owner key hash)
+// - must mint only Order NFTs
 //
 pub fn can_mint_orders(
   destination_addresses: List<Address>,
@@ -20,7 +28,7 @@ pub fn can_mint_orders(
   let Transaction { outputs, reference_inputs, extra_signatories, mint, .. } =
     transaction
 
-  // find settings and parse
+  // must attach Setting in reference inputs
   let Settings { data: settings_data, .. } = find_settings(reference_inputs)
   expect settings_datum: SettingsV1 = settings_data
   let SettingsV1 {
@@ -31,13 +39,16 @@ pub fn can_mint_orders(
     ..
   } = settings_datum
 
-  // check order mint policy id is correct
+  // own minting policy id must be same as orders_mint_policy_id from Settings
   expect orders_mint_policy_id == own_policy_id
 
   // must be signed by orders_minter
   let is_orders_minter_signed = list.has(extra_signatories, orders_minter)
   expect is_orders_minter_signed
 
+  // all Orders NFTs are minted correctly
+  // and sent to orders_spend_script_address 
+  // with correct amount of lovelace and one Order NFT and valid datum
   let expected_mint_value <-
     are_all_orders_minted(
       own_policy_id,
@@ -48,14 +59,17 @@ pub fn can_mint_orders(
       value.zero(),
     )
 
+  // must mint only Order NFTs
   expect value.from_minted_value(mint) == expected_mint_value
 
   True
 }
 
-// Check HAL NFT is minted
-// minting_data script will check
-// correct amount of order NFTs are burnt
+// Validation:
+// When minting engine mint H.A.L. NFTs spending Orders UTxO and burning Orders NFTs
+//
+// Checks:
+// - must mint H.A.L. NFT(s)
 //
 pub fn can_execute_orders(
   transaction: Transaction,
@@ -63,24 +77,30 @@ pub fn can_execute_orders(
 ) -> Bool {
   let Transaction { mint, .. } = transaction
 
+  // must mint H.A.L. NFT(s)
+  // (because H.A.L. burn is not supported, we don't check amount)
   let is_hal_minted =
-    list.has(mint |> value.from_minted_value |> value.policies, hal_policy_id)
+    mint |> value.from_minted_value |> value.policies |> list.has(hal_policy_id)
   expect is_hal_minted
 
   True
 }
 
-// Check only one Order NFT is burnt
+// Validation:
+// When user tries to cancel Order
+//
+// Checks:
+// - must burn only one Order NFT
 //
 pub fn can_cancel_order(policy_id: PolicyId, transaction: Transaction) -> Bool {
   let Transaction { mint, .. } = transaction
 
+  // must burn only one Order NFT
   let only_burn_one_order_token =
     value.from_minted_value(mint) == (
       value.zero()
         |> value.add(policy_id, order_asset_name, -1)
     )
-
   expect only_burn_one_order_token
 
   True
