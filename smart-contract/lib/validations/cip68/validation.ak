@@ -14,7 +14,7 @@ use validations/cip68/utils.{does_spend_user_asset}
 // When user tries to update H.A.L. NFT datum
 //
 // Checks:
-// - must attach Setting in reference inputs
+// - must attach Settings in reference inputs
 // - must be signed by cip68_admin
 // - spending UTxO must have only one reference asset with asset_name from redeemer
 // - there must be H.A.L. user asset in transaction inputs

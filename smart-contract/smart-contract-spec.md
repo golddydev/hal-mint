@@ -46,7 +46,7 @@
 
 ### 2.3 Smart Contracts
 
-H.A.L. minting engine works by the combination of 5 smart contracts.
+H.A.L. minting engine works by the combination of 6 smart contracts.
 
 - `mint_proxy` minting policy
 
@@ -57,6 +57,8 @@ H.A.L. minting engine works by the combination of 5 smart contracts.
 - `orders_mint` minting policy
 
 - `orders_spend` spending validator
+
+- `cip68` spending validator
 
 ## 3. Smart Contracts Detail
 
@@ -277,3 +279,55 @@ None (minting policy)
     > A user can NOT cancel 2 (or more) orders in the same transaction.
 
   - must burn only one `Order NFT`
+
+### 3.6 `cip68` spending validator
+
+#### 3.6.1 Parameter
+
+None
+
+#### 3.6.2 Datum
+
+Anything
+
+#### 3.6.3 Redeemer
+
+- `Update(AssetName)`
+
+- `Migrate`
+
+#### 3.6.4 Validation
+
+- `Update(AssetName)`: called when user tries to update H.A.L. NFT's datum.
+
+  - must attach `Settings` NFT in reference inputs.
+
+  - must be signed by `cip68_admin` from `Settings`.
+
+  - spending UTxO must have only one reference asset with `asset_name` from redeemer.
+
+  - there must be H.A.L. user asset in transaction inputs.
+
+  - there must be only one UTxO spending in inputs from this script.
+
+  - first output must be UTxO with reference asset.
+
+    - must have same value as spending input. (except `lovelace` because that can change)
+
+    - must NOT have reference_script.
+
+    - output address must be same as spending input or `cip68_script_address` from `Settings`.
+
+- `Migrate`: called when user (or admin) tries to migrate reference asset to latest CIP68 script.
+
+  - must attach `Settings` NFT in reference inputs.
+
+  - first output must be UTxO with reference asset.
+
+    - output address must be same as `cip68_script_address` from `Settings`.
+
+    - must have same value as spending input.
+
+    - must have same datum as spending input.
+
+    - must NOT have reference_script.
