@@ -1,4 +1,5 @@
 use aiken/bytearray
+use aiken/dict
 use aiken/list
 use aiken/transaction.{Output, OutputReference, Transaction}
 use aiken/transaction/value.{AssetName}
@@ -15,10 +16,10 @@ use validations/cip68/utils.{does_spend_user_asset}
 // Checks:
 // - must attach Setting in reference inputs
 // - must be signed by cip68_admin
-// - spending UTxO must have reference asset with asset_name from redeemer
+// - spending UTxO must have only one reference asset with asset_name from redeemer
 // - there must be H.A.L. user asset in transaction inputs
 // - there must be only one UTxO spending in inputs from this script
-// - first output must be UTxO with reference asset
+// - first output must be UTxO with reference asset with same value
 //
 pub fn can_update(
   transaction: Transaction,
@@ -46,12 +47,13 @@ pub fn can_update(
   let ref_asset_name = bytearray.concat(prefix_100, asset_name)
   let user_asset_name = bytearray.concat(prefix_222, asset_name)
 
-  // spending UTxO must have reference asset with asset_name from redeemer
+  // spending UTxO must have only one reference asset with asset_name from redeemer
   let own_utxo = get_own_utxo(inputs, spending_output_reference)
   let Output { address: own_utxo_address, value: own_utxo_value, .. } = own_utxo
-  let has_ref_asset =
-    ( own_utxo_value |> value.quantity_of(hal_policy_id, ref_asset_name) ) == 1
-  expect has_ref_asset
+  let hal_tokens =
+    own_utxo_value |> value.tokens(hal_policy_id) |> dict.to_pairs
+  let has_only_one_ref_asset = hal_tokens == [Pair(ref_asset_name, 1)]
+  expect has_only_one_ref_asset
 
   // there must be H.A.L. user asset in transaction inputs
   let is_spending_user_asset =
@@ -63,7 +65,7 @@ pub fn can_update(
   let own_utxos_count = get_own_utxos_count(inputs, own_script_hash)
   expect own_utxos_count == 1
 
-  // first output must be UTxO with reference asset
+  // first output must be UTxO with reference asset with same value
   expect [output, ..] = outputs
   let Output {
     address: output_address,
@@ -95,9 +97,8 @@ pub fn can_update(
 //
 // Checks:
 // - must attach Setting in reference inputs
-// - spending UTxO must have reference asset
 // - first output must be UTxO with reference asset to cip68_script_address
-//   with same value and datum
+//   with same value and datum as spending UTxO
 //
 pub fn can_migrate(
   transaction: Transaction,
@@ -108,18 +109,12 @@ pub fn can_migrate(
   // must attach Setting in reference inputs
   let Settings { data: settings_data, .. } = find_settings(reference_inputs)
   expect settings_datum: SettingsV1 = settings_data
-  let SettingsV1 { policy_id: hal_policy_id, cip68_script_address, .. } =
-    settings_datum
-
-  // spending UTxO must have reference asset
-  let own_utxo = get_own_utxo(inputs, spending_output_reference)
-  let Output { value: own_utxo_value, datum: own_utxo_datum, .. } = own_utxo
-  let has_ref_asset =
-    own_utxo_value |> value.policies |> list.has(hal_policy_id)
-  expect has_ref_asset
+  let SettingsV1 { cip68_script_address, .. } = settings_datum
 
   // first output must be UTxO with reference asset to cip68_script_address
-  // with same value and datum
+  // with same value and datum as spending UTxO
+  let own_utxo = get_own_utxo(inputs, spending_output_reference)
+  let Output { value: own_utxo_value, datum: own_utxo_datum, .. } = own_utxo
   expect [output, ..] = outputs
   let Output {
     address: output_address,
@@ -127,6 +122,7 @@ pub fn can_migrate(
     datum: output_datum,
     reference_script: output_reference_script,
   } = output
+  // output address must be cip68_script_address
   let is_output_address_valid = output_address == cip68_script_address
   expect is_output_address_valid
   // value must stay same
